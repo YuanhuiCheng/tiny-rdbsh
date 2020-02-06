@@ -26,14 +26,15 @@ _note_:
 - sometimes, the owner is not name but ID(number) and `<unavail>` (maybe we are not supposed to consider this dumb case).
 - what does the last character `@` from `-rw-r--r--@` mean?
 - permission characters:
-    r    Permission to read file
-    w    Permission to write to file
-    x    Permission to execute file
-    <!-- [a    Archive bit is on (file has not been backed up)
-    c    Compressed file
-    s    System file
-    h    Hidden file
-    t    Temporary file] <- what hack does these mean?> -->
+
+    r    Permission to read file <br />
+    w    Permission to write to file <br />
+    x    Permission to execute file <br />
+    (a    Archive bit is on (file has not been backed up) <br />
+    c    Compressed file <br />
+    s    System file <br />
+    h    Hidden file <br />
+    t    Temporary file) what hack does these mean?
 - **we may add more user-level file types (for ex: C, C++, text, executable ...)**
 
 **2. fileType=(id, type)**
@@ -73,6 +74,7 @@ id | pr | pw | pe
 _note_: we should use `bits` or `decimal` to be the id?
 
 _references_:
+
 7	read, write and execute	rwx	111 <br />
 6	read and write	rw-	110 <br />
 5	read and execute	r-x	101 <br />
