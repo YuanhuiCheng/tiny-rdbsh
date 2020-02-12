@@ -1,0 +1,11 @@
+var,path,fileID
+PWD,/,/
+HOME,/root,/root
+PATH1,/usr/local/sbin,/usr/local/sbin
+PATH2,/usr/local/bin,/usr/local/bin
+PATH3,/usr/sbin,/usr/sbin
+PATH4,/usr/bin,/usr/bin
+PATH5,/sbin,/sbin
+PATH6,/bin,/bin
+_,/usr/bin/python3,/usr/bin/python3
+OLDPWD,/csv,/csv

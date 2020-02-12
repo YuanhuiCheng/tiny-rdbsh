@@ -3,10 +3,12 @@
 [useful link](https://www.mkssoftware.com/docs/man1/ls.1.asp)
 
 ### Relation Schema
-**1. file=(id, type, op, gp, tp, numOfLinks, ownerID, groupID, size, time, name, parentID)**
+**1. file=(id, inode, type, op, gp, tp, numOfLinks, , ownerID, groupID, size, time, name, parentID)**
 
 _attributes_:
 - id: auto-incremental number
+- inode: inode number of the file
+- type: file type
 - permission (now decomposed into `type`, `owner permission (op)`, `group permission (gp)`, `other permission (tp)`)
     - **10** characters in total
     - first character represents the type (e.g. d -> directory, - -> regular file)
@@ -51,6 +53,8 @@ l | Symbolic link
 n | Network file 
 p | FIFO 
 s | Socket 
+
+character special file: Character special file: A file that provides access to an input/output device. Examples of character special files are: a terminal file, a NULL file, a file descriptor file, or a system console file.
     
 **3. permissionType=(id, pr, pw, pe)**
 
@@ -84,7 +88,7 @@ _references_:
 1	execute only	--x	001 <br />
 0	none	---	000 
 
-**4. owner=(id, name)**
+**4. user=(id, name, groupID)**
 
 **5. group=(id, name)**
 
@@ -102,22 +106,27 @@ _note_:
 
 [useful link](https://www.cs.purdue.edu/homes/bb/cs348/www-S08/unix_path.html)
 
-**7. symbolicLink=(pfID, fID)**
+**7. symbolicLink=(fID, pfID)**
 
 _attributes_: 
+- fID: who directs the link (symbolic link file)
 - pfID: fileID of pointed file 
-- fID: who directs the link
 
 _note_:
 - to find sybolic link: ls -la [some path] | grep "\->"
 - may store path?
 
-**8. hardLink=(inode, fID)**
+**8. hardLink=(inode, dev)**
 
 _attributes_: 
 - inode: inode's Id
-- fID: who directs the link
+- dev: the device that inode resides in
 
 _note_:
 - to find hard link: ls -l, ls -i (needs to do more research)
 - hard link can only link files
+
+**9. (file($id))=(contents)**
+
+_note_:
+- one file -> one table
