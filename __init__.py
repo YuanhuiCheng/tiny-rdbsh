@@ -9,7 +9,7 @@ from pathlib import Path
 
 # 'file' attributes
 file_attr = ['id', 'inode', 'dev', 'type', 'op', 'gp', 'tp', 'num_of_links', 
-    'owner_id', 'group_id', 'size', 'time', 'name', 'parentID']
+    'owner_id', 'group_id', 'size', 'time', 'name', 'parentID', 'abs_path']
 
 # 'fileType' table
 file_type_attr = ['id', 'type']
@@ -40,7 +40,7 @@ permission_type_dic = {
 }
 
 # 'user' attributes
-user_attr = ['id', 'name', 'dir', 'groupID']
+user_attr = ['id', 'name', 'path', 'groupID']
 
 # 'group' attributes
 group_attr = ['id', 'name']
@@ -316,11 +316,11 @@ def main():
         
     with open('csv/file.csv', 'w+') as w_csv:
         writer = csv.writer(w_csv)
-        header_temp = ['abs_path']
-        header_temp.extend(file_attr)
-        writer.writerow(header_temp)
+        # header_temp = ['abs_path']
+        # header_temp.extend(file_attr)
+        writer.writerow(file_attr)
         for key, value in file_by_path.items():
-            value.insert(0, key)
+            value.append(key)
             writer.writerow(value)
     
     with open('csv/fileType.csv', 'w+') as w_csv:
@@ -333,7 +333,8 @@ def main():
         writer = csv.writer(w_csv)
         writer.writerow(permission_type_attr)
         for key, value in permission_type_dic.items():
-            writer.writerow([key, value])
+            value.insert(0, key)
+            writer.writerow(value)
 
     with open('csv/group.csv', 'w+') as group_csv, open('csv/user.csv', 'w+') as user_csv:
         group_writer = csv.writer(group_csv)

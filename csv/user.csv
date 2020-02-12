@@ -1,4 +1,4 @@
-id,name,dir,groupID
+id,name,path,groupID
 0,root,/root,0
 1,daemon,/usr/sbin,1
 2,bin,/bin,2
