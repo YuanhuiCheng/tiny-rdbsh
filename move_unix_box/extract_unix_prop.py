@@ -231,7 +231,12 @@ def main():
     walk_dir = sys.argv[1]
     walk_dir_name = os.path.basename(walk_dir)
     walk_dir_abs_path = os.path.abspath(walk_dir)
-    file_by_path[walk_dir_abs_path] = [1, walk_dir_name, 0]
+
+    root_att_lst = analyze_attr(walk_dir_abs_path)
+    root_att_lst.insert(0, 1)
+    root_att_lst.append(0)
+
+    file_by_path[walk_dir_abs_path] = root_att_lst
     print('walk_dir: ' + str(walk_dir_abs_path) + ' |walk_dir_att: ' + str(file_by_path[walk_dir_abs_path]))
 
     file_id = 1
@@ -314,7 +319,7 @@ def main():
     
     os.makedirs('csv', exist_ok=True)
         
-    with open('csv/file.csv', 'w+') as w_csv:
+    with open('csv/file_t.csv', 'w+') as w_csv:
         writer = csv.writer(w_csv)
         # header_temp = ['abs_path']
         # header_temp.extend(file_attr)
@@ -323,20 +328,20 @@ def main():
             value.append(key)
             writer.writerow(value)
     
-    with open('csv/fileType.csv', 'w+') as w_csv:
+    with open('csv/fileType_t.csv', 'w+') as w_csv:
         writer = csv.writer(w_csv)
         writer.writerow(file_type_attr)
         for key, value in file_type_dic.items():
             writer.writerow([key, value])
     
-    with open('csv/permissionType.csv', 'w+') as w_csv:
+    with open('csv/permissionType_t.csv', 'w+') as w_csv:
         writer = csv.writer(w_csv)
         writer.writerow(permission_type_attr)
         for key, value in permission_type_dic.items():
             value.insert(0, key)
             writer.writerow(value)
 
-    with open('csv/group.csv', 'w+') as group_csv, open('csv/user.csv', 'w+') as user_csv:
+    with open('csv/group_t.csv', 'w+') as group_csv, open('csv/user_t.csv', 'w+') as user_csv:
         group_writer = csv.writer(group_csv)
         group_writer.writerow(group_attr)
 
@@ -373,7 +378,7 @@ def main():
                     print('--\n no group name attributed for group id ' + str(pwd_entry.pw_gid))
                     print('pwd entry: ' + str(pwd_entry) + '\n--')
 
-    with open('csv/pathVar.csv', 'w+') as w_csv:
+    with open('csv/pathVar_t.csv', 'w+') as w_csv:
         writer = csv.writer(w_csv)
         writer.writerow(path_var_attr)
         for key, value in os.environ.items():
@@ -394,7 +399,7 @@ def main():
                     print('may not be a regular executable var: ' + str(key) + ' => ' + str(value))
                     
                     
-    with open('csv/symbolicLink.csv', 'w+') as w_csv:
+    with open('csv/symbolicLink_t.csv', 'w+') as w_csv:
         writer = csv.writer(w_csv)
         sym_link_attr.extend(['filePath', 'pointedFilePath'])
         writer.writerow(sym_link_attr)
@@ -408,7 +413,7 @@ def main():
             except:
                 print('symlink may point to a non-exist file: ' + str(key) + ' -> ' + str(value))
 
-    with open('csv/hardLink.csv', 'w+') as w_csv:
+    with open('csv/hardLink_t.csv', 'w+') as w_csv:
         writer = csv.writer(w_csv)
         writer.writerow(hard_link_attr)
         for info in inode_dev_lst:
