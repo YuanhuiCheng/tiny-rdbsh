@@ -7,7 +7,7 @@ First, run `cd move_unix_box`
 **Move UNIX box data to your local machine hosted mysql**
 Run `./build.sh [mysql_user] [mysql_pwd]`
 
-For example, `./move_unix_box/build.sh yuanhui 12345ssdlh`
+For example, `./build.sh yuanhui 12345ssdlh`
 
 **Move UNIX box data to your local machine hosted mysql and vm hosted mysql**
 Run `./build.sh [mysql_user] [mysql_pwd] [remote_url] [remote_sql_user] [remote_sql_pwd]`

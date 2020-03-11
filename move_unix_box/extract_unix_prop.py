@@ -68,8 +68,9 @@ ep_file_cnt = 0
 wo_file_cnt = 0
 
 cnt_by_extension = {}
+regular_file_fake_path = []
 
-def analyze_attr(file_path):
+def analyze_attr(file_path, skipped_file):
     global d_file_cnt
     global r_file_cnt
     global l_file_cnt
@@ -83,6 +84,18 @@ def analyze_attr(file_path):
         
     info = os.stat(file_path, follow_symlinks=False)
     mode = info.st_mode
+
+    inode = ''
+    dev = ''
+    file_type = ''
+    op = ''
+    gp = ''
+    tp = ''
+    num_of_links = ''
+    owner_id = ''
+    group_id = ''
+    size = ''
+    time = ''
 
     # get inode number
     inode = info.st_ino
@@ -105,6 +118,9 @@ def analyze_attr(file_path):
     elif S_ISREG(mode):
         file_type = '-'
         r_file_cnt+=1
+        if file_path not in regular_file_fake_path:
+            fake_file_path = 'temp_unix' + str(file_path)
+            regular_file_fake_path.append(fake_file_path)
     elif S_ISLNK(mode):
         file_type = 'l'
         # print('it is a symlink: ' + str(file_path))
@@ -123,11 +139,10 @@ def analyze_attr(file_path):
         formal_pointed_file_path = os.path.join(Path(file_path).parents[parent_level_cnt], partial_pointed_file_path)
         formal_pointed_file_path = os.path.normpath(formal_pointed_file_path)
 
-        #print('formal: ' + str(formal_pointed_file_path))
-        # print('pointed file: ' + str(pointed_file_path))
-        if re.match('/proc/[0-9]+.*', formal_pointed_file_path):
-            print('skip symlink: ' + str(file_path) + ' -> ' + str(formal_pointed_file_path))
-            return None
+        # if re.match('/proc*', formal_pointed_file_path) or re.match('/sys*', formal_pointed_file_path):
+        #     # print('skip file (subdir): ' + sub_dir_path)
+        #     skipped_file.write('skip file (in analyze_attr): ' + formal_pointed_file_path + '\n')
+        #     return None
 
         if file_path in sym_pointed_file_by_file:
             print(file_path + ' is already pointed to ' + sym_pointed_file_by_file[file_path])
@@ -232,8 +247,14 @@ def main():
     walk_dir_name = os.path.basename(walk_dir)
     walk_dir_abs_path = os.path.abspath(walk_dir)
 
-    root_att_lst = analyze_attr(walk_dir_abs_path)
+    skipped_file = 'err/skipped_info.txt'
+    os.makedirs(os.path.dirname(skipped_file), exist_ok=True)
+
+    skipped_file = open(skipped_file, 'w')
+
+    root_att_lst = analyze_attr(walk_dir_abs_path, skipped_file)
     root_att_lst.insert(0, 1)
+    root_att_lst.append('') # name of super root, given as empty string
     root_att_lst.append(0)
 
     file_by_path[walk_dir_abs_path] = root_att_lst
@@ -245,8 +266,9 @@ def main():
         '''
         may change it later
         ''' 
-        if re.match('/proc/[0-9]+.*', root):
-            print('skip file (root): ' + root)
+
+        if re.match('/proc*', root) or re.match('/sys*', root):
+            skipped_file.write('skip file (root): ' + root + '\n')
             continue
 
         parent_id = -1
@@ -254,28 +276,6 @@ def main():
 
         file_tuple = file_by_path[root]
         parent_id = file_tuple[0]
-
-        # 'root' is the absolute path
-        # if root in file_by_path:
-        #     file_tuple = file_by_path[root]
-        #     parent_id = file_tuple[0]
-        # else:
-        #     file_id += 1
-        #     parent_path = os.path.normpath(os.path.join(root, os.pardir))
-        #     print('parent path: ' + str(parent_path))
-        #     file_tuple = file_by_path[parent_path]
-        #     parent_id = file_id
-
-        #     rst_attr_lst = [file_id]
-        #     att_lst = analyze_attr(root)
-        #     if att_lst is None: # actually should never goes here
-        #         print('skip file (root2): ' + root)
-        #         continue
-        #     rst_attr_lst.extend(att_lst)
-        #     rst_attr_lst.append(root_name)
-        #     rst_attr_lst.append(file_tuple[0])
-
-        #     file_by_path[root] = rst_attr_lst
     
         for subdir in subdirs:
             sub_dir_path = os.path.join(root, subdir)
@@ -283,16 +283,13 @@ def main():
             '''
             may change it later
             ''' 
-            if re.match('/proc/[0-9]+.*', sub_dir_path):
-                print('skip file (subdir): ' + sub_dir_path)
-                continue
 
             sub_dir_name = os.path.basename(subdir)
 
             file_id += 1
 
             rst_attr_lst = [file_id]
-            att_lst = analyze_attr(sub_dir_path)
+            att_lst = analyze_attr(sub_dir_path, skipped_file)
             if att_lst is None: 
                 print('skip symlink dir: ' + sub_dir_path)
                 continue
@@ -305,12 +302,15 @@ def main():
         for filename in files:
             file_id += 1
             file_path = os.path.join(root, filename)
+
+            att_lst = analyze_attr(file_path, skipped_file)
+            if att_lst is None:
+                skipped_file.write('skip file (file): ' + file_path + '\n')
+                continue
+
             file_by_path[file_path] = [file_id, filename, parent_id]
             rst_attr_lst = [file_id]
-            att_lst = analyze_attr(file_path)
-            if att_lst is None: # should never goes here
-                print('skip file (file): ' + file_path)
-                continue
+
             rst_attr_lst.extend(att_lst)
             rst_attr_lst.append(filename)
             rst_attr_lst.append(parent_id)
@@ -321,8 +321,6 @@ def main():
         
     with open('csv/file_t.csv', 'w+') as w_csv:
         writer = csv.writer(w_csv)
-        # header_temp = ['abs_path']
-        # header_temp.extend(file_attr)
         writer.writerow(file_attr)
         for key, value in file_by_path.items():
             value.append(key)
@@ -357,8 +355,7 @@ def main():
         #     for mem in group_entry.gr_mem:
         #         print('mem is: ' + str(mem))
         #         user_writer.writerow([pwd.getpwnam(mem), mem, group_entry.gr_gid])
-    
-    
+
         pwd_entries = pwd.getpwall()
 
         group_id_lst = []
@@ -411,7 +408,8 @@ def main():
                 pointed_file_ID = pointed_file_property[file_attr.index('id')]
                 writer.writerow([file_ID, pointed_file_ID, key, value])
             except:
-                print('symlink may point to a non-exist file: ' + str(key) + ' -> ' + str(value))
+                # print('symlink may point to a non-exist file: ' + str(key) + ' -> ' + str(value))
+                skipped_file.write('symlink may point to a non-exist file: ' + str(key) + ' -> ' + str(value) + '\n')
 
     with open('csv/hardLink_t.csv', 'w+') as w_csv:
         writer = csv.writer(w_csv)
@@ -425,6 +423,12 @@ def main():
         writer.writerow(['file_ext', 'cnt'])
         for key, value in cnt_by_extension.items():
             writer.writerow([key, value])
+    
+    with open('csv/fakeFilePath.csv', 'w+') as w_csv:
+        writer = csv.writer(w_csv)
+        writer.writerow(['fake_file_path'])
+        for path in regular_file_fake_path:
+            writer.writerow([path])
 
     print('\n---------------------')
     print('total directory count: ' + str(d_file_cnt))
@@ -438,6 +442,8 @@ def main():
     print('total event port count: ' + str(ep_file_cnt))
     print('total whiteout count: ' + str(wo_file_cnt))
     print('---------------------\n')
+
+    skipped_file.close()
     
 if __name__ == '__main__':
     main()
