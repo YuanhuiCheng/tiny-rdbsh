@@ -8,48 +8,54 @@ import re
 from pathlib import Path
 
 # 'file' attributes
-file_attr = ['id', 'inode', 'dev', 'type', 'op', 'gp', 'tp', 'num_of_links', 
-    'owner_id', 'group_id', 'size', 'time', 'name', 'parentID', 'abs_path']
+# file_attr = ['id', 'inode', 'dev', 'type', 'op', 'gp', 'tp', 'num_of_links', 
+#     'owner_id', 'group_id', 'size', 'time', 'name', 'parentID', 'abs_path']
+# may remove the 'name' and 'pid' columns
+file_attr = ['fid', 'inode', 'ftype', 'op', 'gp', 'tp', 'numoflinks', 
+    'uid', 'size', 'ctime', 'mtime', 'name', 'pid', 'abspath']
 
 # 'fileType' table
-file_type_attr = ['id', 'type']
-file_type_dic = {
-    'd' : 'Directory',
-    '-' : 'Regular',
-    'l' : 'Symoblic link',
-    'c' : 'Character special',
-    'b' : 'Block special',
-    'p' : 'FIFO',
-    's' : 'Socket',
-    'do' : 'Door',
-    'ep' : 'Event port',
-    'wo' : 'Whiteout'
-}
+# file_type_attr = ['id', 'type']
+# file_type_dic = {
+#     'd' : 'Directory',
+#     '-' : 'Regular',
+#     'l' : 'Symoblic link',
+#     'c' : 'Character special',
+#     'b' : 'Block special',
+#     'p' : 'FIFO',
+#     's' : 'Socket',
+#     'do' : 'Door',
+#     'ep' : 'Event port',
+#     'wo' : 'Whiteout'
+# }
 
 # 'permissionType' table
-permission_type_attr = ['id', 'pr', 'pw', 'pe']
-permission_type_dic = {
-    0 : ['-', '-', '-'],
-    1 : ['-', '-', 'x'],
-    2 : ['-', 'w', '-'],
-    3 : ['-', 'w', 'x'],
-    4 : ['r', '-', '-'],
-    5 : ['r', '-', 'x'],
-    6 : ['r', 'w', '-'],
-    7 : ['r', 'w', 'x']
-}
+# permission_type_attr = ['id', 'pr', 'pw', 'pe']
+# permission_type_dic = {
+#     0 : ['-', '-', '-'],
+#     1 : ['-', '-', 'x'],
+#     2 : ['-', 'w', '-'],
+#     3 : ['-', 'w', 'x'],
+#     4 : ['r', '-', '-'],
+#     5 : ['r', '-', 'x'],
+#     6 : ['r', 'w', '-'],
+#     7 : ['r', 'w', 'x']
+# }
 
 # 'user' attributes
-user_attr = ['id', 'name', 'path', 'groupID']
+# may remove 'path' column
+# user_attr = ['uid', 'name', 'path', 'gid']
+user_attr = ['uid', 'name', 'gid']
 
 # 'group' attributes
-group_attr = ['id', 'name']
+group_attr = ['gid', 'name']
 
 # 'pathVar' attributes
-path_var_attr = ['var', 'path', 'fileID']
+# path_var_attr = ['var', 'path', 'fileID']
+path_attr = ['fid']
 
 # 'symbolicLink' attributes
-sym_link_attr = ['fID', 'pfID']
+sym_link_attr = ['fid', 'pfid']
 sym_pointed_file_by_file = {}
 
 # 'hardLink' attributes
@@ -123,26 +129,14 @@ def analyze_attr(file_path, skipped_file):
             regular_file_fake_path.append(fake_file_path)
     elif S_ISLNK(mode):
         file_type = 'l'
-        # print('it is a symlink: ' + str(file_path))
+ 
         pointed_file_path = os.readlink(file_path)
         parent_level_cnt = pointed_file_path.count('../')
         formal_pointed_file_path = ''
-        # if parent_level_cnt == 0:
-        #     # formal_pointed_file_path = str(Path(file_path).parents[0]) + '/' + str(pointed_file_path)
-        #     formal_pointed_file_path = os.path.join(file_path, pointed_file_path)
-        # else:
-        #     partial_pointed_file_path = pointed_file_path.replace('../', '')
-        #     # formal_pointed_file_path = str(Path(file_path).parents[parent_level_cnt-1]) + '/' + str(partial_pointed_file_path)
-        #     formal_pointed_file_path = os.path.join(Path(file_path).parents[parent_level_cnt], partial_pointed_file_path)
         
         partial_pointed_file_path = pointed_file_path.replace('../', '')
         formal_pointed_file_path = os.path.join(Path(file_path).parents[parent_level_cnt], partial_pointed_file_path)
         formal_pointed_file_path = os.path.normpath(formal_pointed_file_path)
-
-        # if re.match('/proc*', formal_pointed_file_path) or re.match('/sys*', formal_pointed_file_path):
-        #     # print('skip file (subdir): ' + sub_dir_path)
-        #     skipped_file.write('skip file (in analyze_attr): ' + formal_pointed_file_path + '\n')
-        #     return None
 
         if file_path in sym_pointed_file_by_file:
             print(file_path + ' is already pointed to ' + sym_pointed_file_by_file[file_path])
@@ -223,7 +217,10 @@ def analyze_attr(file_path, skipped_file):
     size = info.st_size
 
     # get creation time or modification time 
-    time = info.st_ctime
+    ctime = info.st_ctime
+
+    # get modification time 
+    mtime = info.st_mtime
 
     # get file extension
     ext = Path(file_path).suffix
@@ -234,7 +231,9 @@ def analyze_attr(file_path, skipped_file):
     else:
         cnt_by_extension[ext] = 1
 
-    return [inode, dev, file_type, op, gp, tp, num_of_links, owner_id, group_id, size, time]
+    return [inode, file_type, op, gp, tp, num_of_links, owner_id, size, ctime, mtime]
+    # file_attr = ['fid', 'inode', 'ftype', 'op', 'gp', 'tp', 'numoflinks', 
+    # 'uid', 'size', 'ctime', 'mtime', 'name', 'pid', 'abspath']
 
 def main():
     print ("\n\n=====================================")
@@ -326,18 +325,18 @@ def main():
             value.append(key)
             writer.writerow(value)
     
-    with open('csv/fileType_t.csv', 'w+') as w_csv:
-        writer = csv.writer(w_csv)
-        writer.writerow(file_type_attr)
-        for key, value in file_type_dic.items():
-            writer.writerow([key, value])
+    # with open('csv/fileType_t.csv', 'w+') as w_csv:
+    #     writer = csv.writer(w_csv)
+    #     writer.writerow(file_type_attr)
+    #     for key, value in file_type_dic.items():
+    #         writer.writerow([key, value])
     
-    with open('csv/permissionType_t.csv', 'w+') as w_csv:
-        writer = csv.writer(w_csv)
-        writer.writerow(permission_type_attr)
-        for key, value in permission_type_dic.items():
-            value.insert(0, key)
-            writer.writerow(value)
+    # with open('csv/permissionType_t.csv', 'w+') as w_csv:
+    #     writer = csv.writer(w_csv)
+    #     writer.writerow(permission_type_attr)
+    #     for key, value in permission_type_dic.items():
+    #         value.insert(0, key)
+    #         writer.writerow(value)
 
     with open('csv/group_t.csv', 'w+') as group_csv, open('csv/user_t.csv', 'w+') as user_csv:
         group_writer = csv.writer(group_csv)
@@ -361,11 +360,8 @@ def main():
         group_id_lst = []
 
         for pwd_entry in pwd_entries:
-            # print('pw_name: ' + str(pwd_entry.pw_name)
-            #     + ' pw_passwd: ' + str(pwd_entry.pw_passwd)
-            #     + ' pw_uid: ' + str(pwd_entry.pw_uid)
-            #     + ' pw_gid: ' + str(pwd_entry.pw_gid))
-            user_writer.writerow([pwd_entry.pw_uid, pwd_entry.pw_name, pwd_entry.pw_dir, pwd_entry.pw_gid])
+            # user_writer.writerow([pwd_entry.pw_uid, pwd_entry.pw_name, pwd_entry.pw_dir, pwd_entry.pw_gid])
+            user_writer.writerow([pwd_entry.pw_uid, pwd_entry.pw_name, pwd_entry.pw_gid])
 
             if pwd_entry.pw_gid not in group_id_lst:
                 group_id_lst.append(pwd_entry.pw_gid)
@@ -377,7 +373,7 @@ def main():
 
     with open('csv/pathVar_t.csv', 'w+') as w_csv:
         writer = csv.writer(w_csv)
-        writer.writerow(path_var_attr)
+        writer.writerow(path_attr)
         for key, value in os.environ.items():
             if key == 'PATH':
                 paths = [v.strip() for v in value.split(':')]
@@ -385,28 +381,30 @@ def main():
                     var_name = 'PATH'+str(i+1)
                     path = paths[i]
                     file_property = file_by_path[path]
-                    file_ID = file_property[file_attr.index('id')]
-                    writer.writerow([var_name, path, file_ID])
-            else:
-                try:
-                    file_property = file_by_path[value]
-                    file_ID = file_property[file_attr.index('id')]
-                    writer.writerow([key, value, file_ID])
-                except:
-                    print('may not be a regular executable var: ' + str(key) + ' => ' + str(value))
+                    file_ID = file_property[file_attr.index('fid')]
+                    # writer.writerow([var_name, path, file_ID])
+                    writer.writerow([file_ID])
+            # else:
+            #     try:
+            #         file_property = file_by_path[value]
+            #         file_ID = file_property[file_attr.index('id')]
+            #         writer.writerow([key, value, file_ID])
+            #     except:
+            #         print('may not be a regular executable var: ' + str(key) + ' => ' + str(value))
                     
                     
     with open('csv/symbolicLink_t.csv', 'w+') as w_csv:
         writer = csv.writer(w_csv)
-        sym_link_attr.extend(['filePath', 'pointedFilePath'])
+        # sym_link_attr.extend(['filePath', 'pointedFilePath'])
         writer.writerow(sym_link_attr)
         for key, value in sym_pointed_file_by_file.items():
             try:
                 file_property = file_by_path[key]
                 pointed_file_property = file_by_path[value]
-                file_ID = file_property[file_attr.index('id')]
-                pointed_file_ID = pointed_file_property[file_attr.index('id')]
-                writer.writerow([file_ID, pointed_file_ID, key, value])
+                file_ID = file_property[file_attr.index('fid')]
+                pointed_file_ID = pointed_file_property[file_attr.index('fid')]
+                # writer.writerow([file_ID, pointed_file_ID, key, value])
+                writer.writerow([file_ID, pointed_file_ID])
             except:
                 # print('symlink may point to a non-exist file: ' + str(key) + ' -> ' + str(value))
                 skipped_file.write('symlink may point to a non-exist file: ' + str(key) + ' -> ' + str(value) + '\n')
@@ -417,14 +415,18 @@ def main():
         for info in inode_dev_lst:
             writer.writerow(info)
 
-    # helper csv
-    with open('csv/fileExtensions.csv', 'w+') as w_csv:
+   # helper csv
+    os.makedirs(os.path.dirname('helpercsv/fileExtensions.csv'), exist_ok=True)
+    os.makedirs(os.path.dirname('helpercsv/fakeFilePath.csv'), exist_ok=True)
+    
+    with open('helpercsv/fileExtensions.csv', 'w+') as w_csv:
         writer = csv.writer(w_csv)
         writer.writerow(['file_ext', 'cnt'])
         for key, value in cnt_by_extension.items():
             writer.writerow([key, value])
     
-    with open('csv/fakeFilePath.csv', 'w+') as w_csv:
+    # helper csv
+    with open('helpercsv/fakeFilePath.csv', 'w+') as w_csv:
         writer = csv.writer(w_csv)
         writer.writerow(['fake_file_path'])
         for path in regular_file_fake_path:
