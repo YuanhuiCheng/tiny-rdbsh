@@ -59,11 +59,11 @@ def load_reg_file_content(mycursor):
         # remove 'temp_unix' from fake_file_path
         temp_unix_len = len('temp_unix')
 
-        # mycursor.execute("""
-        #     create table {} (
-        #     fid int,
-        #     data longblob)
-        #     """.format(FILE_CONTENT_TABLE_NAME))
+        mycursor.execute("""
+            create table {} (
+            fid int,
+            data longblob)
+            """.format(FILE_CONTENT_TABLE_NAME))
 
         for path in reader:
             fake_file_path = os.path.abspath(path[0])
@@ -85,27 +85,34 @@ def load_reg_file_content(mycursor):
                 print('Warn: no ' + str(fake_file_path) + ' found in file_t file')
                 continue
             
-            # with open(fake_file_path, 'rb') as f:
-            #     file_content = f.read()
-            #     try:
-            #         query = """
-            #             insert into {} ({}, {})
-            #             values (%s, %s);
-            #             """.format(FILE_CONTENT_TABLE_NAME, 'fid', 'data')
-            #         args = (fid, file_content)
-            #         mycursor.execute(query, args)
-            #     except mysql.connector.Error as err:
-            #         print("Error: " + err.msg)
-            #         print("Failed file path is: " + str(path[0]))
+            with open(fake_file_path, 'rb') as f:
+                file_content = f.read()
+                try:
+                    # if (table_name != '688_'):
+                    #     continue
+                    query = """
+                        insert into {} ({}, {})
+                        values (%s, hex(%s));
+                        """.format(FILE_CONTENT_TABLE_NAME, 'fid', 'data')
+                    # query = """
+                    #     insert into {} ({}, {})
+                    #     values (%s, %s);
+                    #     """.format(FILE_CONTENT_TABLE_NAME, 'fid', 'data')
+                    args = (fid, file_content)
+                    mycursor.execute(query, args)
+                except mysql.connector.Error as err:
+                    print("Error: " + err.msg)
+                    print("Failed file path is: " + str(path[0]))
 
             # print('table name: ' + str(table_name))
+
             # if table_name in table_name_dic:
             #     print('table name duplicated: ' + table_name)
             #     table_name_dic[table_name] += 1
             #     table_name = table_name + str(table_name_dic[table_name])
             # else:
             #     table_name_dic[table_name] = 0
-
+'''
             try:
                 # try:
                 #     mime = mimetypes.guess_type(fake_file_path)
@@ -132,25 +139,46 @@ def load_reg_file_content(mycursor):
                 #     mycursor.execute("""
                 #         load data local infile '{}' into table {}(data)
                 #         """.format(fake_file_path, table_name))  
+                if table_name == '688_':
+                    with open(fake_file_path, "rb") as f:
+                        print('found 688')
+                        # mycursor.execute("""
+                        # create table {} (
+                        # ln int not null auto_increment primary key,
+                        # data longtext not null)
+                        # """.format(table_name))
 
-                with open(fake_file_path, "r") as f:
-                    mycursor.execute("""
-                    create table {} (
-                    ln int not null auto_increment primary key,
-                    data text not null)
-                    """.format(table_name))
+                        mycursor.execute("""
+                        create table {} (
+                        data longblob not null)
+                        """.format(table_name))
 
-                    mycursor.execute("""
-                    load data local infile '{}' into table {}
-                    fields terminated by ''
-                    lines terminated by '\n' (data)
-                    """.format(fake_file_path, table_name))
+                        mycursor.execute("""
+                        SET NAMES binary;
+                        """.format(table_name))
+
+                        # mycursor.execute("""
+                        # load data local infile '{}' into table {}
+                        # fields terminated by ''
+                        # lines terminated by '\n' (data)
+                        # """.format(fake_file_path, table_name))
+
+                        # mycursor.execute("""
+                        # load data local infile '{}' into table {} 
+                        # CHARACTER SET latin7 (data)
+                        # """.format(fake_file_path, table_name))
+
+                        mycursor.execute("""
+                        load data local infile '{}' into table {} 
+                        CHARACTER set binary
+                        (data)
+                        """.format(fake_file_path, table_name))
             except mysql.connector.Error as err:
                 # print("Error: " + err.msg)
                 # print("Failed file path is: " + str(path[0]))
                 err_file.write('Error: ' + err.msg + '\n')
                 err_file.write('Failed file path is: ' + str(path[0]) + '\n\n')
-
+'''
 
 def create_tables(mycursor):
     mycursor.execute("""create table {} (
@@ -281,19 +309,19 @@ def main():
     mycursor = mydb.cursor()
     mycursor.execute('set global local_infile = true')
 
-    mycursor.execute('drop database if exists {}'.format(RDBSH_DB))
-    mycursor.execute('create database if not exists {}'.format(RDBSH_DB))
+    # mycursor.execute('drop database if exists {}'.format(RDBSH_DB))
+    # mycursor.execute('create database if not exists {}'.format(RDBSH_DB))
     mycursor.execute('use {}'.format(RDBSH_DB))
 
-    drop_tables(mycursor)
-    create_tables(mycursor)
-    load_csv(mycursor)
-    add_constraints(mycursor)
+    # drop_tables(mycursor)
+    # create_tables(mycursor)
+    # load_csv(mycursor)
+    # add_constraints(mycursor)
 
     # mycursor.execute('drop database if exists {}'.format(RDBSH_FILE))
     # mycursor.execute('create database if not exists {}'.format(RDBSH_FILE))
     # mycursor.execute('use {}'.format(RDBSH_FILE))
-    # load_reg_file_content(mycursor)
+    load_reg_file_content(mycursor)
 
     mydb.commit()
     mydb.close()

@@ -45,10 +45,19 @@ mkdir -p $TEMP_UNIX_DIR
 docker cp $CONTAINER_NAME:$WKR_ROOT_DIR $TEMP_UNIX_DIR
 
 cd ../final/
-mysql --user=$SQL_USER_NAME --password=$SQL_USER_PWD --database=$RDBSH_DB_NAME --execute="source $RDBSH_EXECUTABLE_SQL;" --local-infile=true
-mysqldump -u$SQL_USER_NAME -p$SQL_USER_PWD $RDBSH_DB_NAME > ${RDBSH_DB_NAME}.sql
 
-# python3 mysql_exe.py $SQL_USER_NAME $SQL_USER_PWD $SQL_REMOTE_HOST_URL $SQL_REMOTE_USER_NAME $SQL_REMOTE_USER_PWD
+# don't forget to create a database first
+# mysql --user=$SQL_USER_NAME --password=$SQL_USER_PWD --database=$RDBSH_DB_NAME --execute="source $RDBSH_EXECUTABLE_SQL;" --local-infile=true
+mysql --user=$SQL_USER_NAME --password=$SQL_USER_PWD --execute="source $RDBSH_EXECUTABLE_SQL;" --local-infile=true
+echo "rdbsh system finished"
+
+cd ../move_unix_box
+
+python3 mysql_exe.py $SQL_USER_NAME $SQL_USER_PWD $SQL_REMOTE_HOST_URL $SQL_REMOTE_USER_NAME $SQL_REMOTE_USER_PWD
+echo "rdbsh file load finished"
+
+mysqldump -u$SQL_USER_NAME -p$SQL_USER_PWD $RDBSH_DB_NAME > ../final/${RDBSH_DB_NAME}.sql
+echo "rdbsh dump finished"
 
 # # move database from your host to your vm
 # if [ $# == 5 ]; then
