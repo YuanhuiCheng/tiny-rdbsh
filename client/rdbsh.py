@@ -5,7 +5,7 @@ from sqlutil import SQLUtil
 
 work_dir = '/'
 
-allowed_commands = ('ls', 'cd', 'find', 'grep', 'path')
+# allowed_commands = ('ls', 'cd', 'find', 'grep', 'path')
 
 
 def simplify_path(path):
@@ -32,8 +32,8 @@ while True:
     text = prompt(work_dir + ' > $ ')
     args = text.split(' ')
 
-    if not is_valid_input(args[0]):
-        print('Command not supported. Valid commands are: ' + ' '.join(allowed_commands))
+    # if not is_valid_input(args[0]):
+    #     print('Command not supported. Valid commands are: ' + ' '.join(allowed_commands))
 
     if args[0].startswith('ls'):
         prop = False
@@ -59,7 +59,6 @@ while True:
             if not prop:
                 print(file.name)
             else:
-                # print('fuck')
                 file.lprint()
     elif args[0].startswith('cd'):
         if len(args) == 1:
@@ -74,9 +73,20 @@ while True:
             else:
                 print('cd: no such file or directory: %s', temp_work_dir)
     elif args[0].startswith('path'):
-        sqlutil.path_var();
-    else:   
-        exec_exists = sqlutil.get_executable(args[0])
+        # path maintanence
+        path = sqlutil.path_var()
+        print(':'.join(path))
+    elif args[0].startswith('find'):
+        if args[1].startswith('/'):
+            path = args[1]
+        else:
+            path = simplify_path(work_dir + '/' + args[1])
+        files = sqlutil.find(path, args[2:])
+        for file in files:
+            file.fprint(work_dir)
+    else:  
+        # execute executable functions 
+        exec_exists = sqlutil.get_executable(args)
 
 
 

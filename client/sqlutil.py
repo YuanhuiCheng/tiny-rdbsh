@@ -3,7 +3,7 @@ import os
 from datetime import datetime
 
 class File(object):
-    def __init__(self, fid, name, permission=None, num_links=None, user=None, group=None, size=None, mtime=None, slink_name=None):
+    def __init__(self, fid, name, permission=None, num_links=None, user=None, group=None, size=None, mtime=None, slink_name=None, abs_path=None):
         self.fid = fid
         self.name = name
         self.permission = permission
@@ -13,13 +13,24 @@ class File(object):
         self.size = size
         self.mtime = mtime
         self.slink_name = slink_name
+        self.abs_path = abs_path
 
+    # ls -l pretty print
     def lprint(self):
         if self.slink_name is None:
             name = self.name
         else:
             name = "%s -> %s" % (self.name, self.slink_name)
         print(self.permission, self.num_links, self.user, self.group, self.size, self.mtime, name)
+
+    # find pretty print
+    def fprint(self, work_dir):
+        # convert absolute path to relative path
+        path = os.path.relpath(self.abs_path, work_dir) 
+        if self.slink_name:
+            path = "%s -> %s" % (path, self.slink_name)
+        print(self.permission, self.num_links, self.user, self.group, self.size, self.mtime, path)
+
 class SQLUtil(object):
     def __init__(self):
         self.connection = pymysql.connect(host='localhost',
@@ -29,12 +40,6 @@ class SQLUtil(object):
                              charset='utf8mb4',
                              cursorclass=pymysql.cursors.DictCursor)
 
-        self.file_conn = pymysql.connect(host='localhost',
-                             user='zz',
-                             password='152314zzz',
-                             db='rdbshfile',
-                             charset='utf8mb4',
-                             cursorclass=pymysql.cursors.DictCursor)
     @staticmethod    
     def build_path_regex(path):
         """ Make path to be in regex format ^\/path\/[^\/]+$"""
@@ -86,7 +91,7 @@ class SQLUtil(object):
         ls_set = []
         with self.connection.cursor() as cursor:
             # Read a single record
-            print(path)
+            # print(path)
             sql = "\
             SELECT * FROM file_t \
             INNER JOIN user_t \
@@ -120,10 +125,9 @@ class SQLUtil(object):
                     slink_name = result['sname']
                     file = File(fid, name, permission, num_links, user, group, size, time_str, slink_name)
                     ls_set.append(file)
-
-        
         return ls_set
 
+    # echo all the path variable
     def path_var(self):
         with self.connection.cursor() as cursor:
             sql = "SELECT `abspath` FROM `pathVar_t` p JOIN `file_t` f ON p.fid = f.fid"
@@ -133,34 +137,104 @@ class SQLUtil(object):
             for result in results:
                 path_var = result['abspath'].rstrip('\r')
                 path_vars.append(path_var)
-            print(':'.join(path_vars))
             return path_vars
 
-    def get_executable(self, name):
+    # execute executable file
+    def get_executable(self, args):
+        name = args[0]
         path_vars = self.path_var()
         for path_var in path_vars:
             found = False
-            fid_name_tups = self.ls(path_var)
-            for fid_name_tup in fid_name_tups:
-                if fid_name_tup[1] == name:
-                    print(fid_name_tup)
+            exefiles = self.ls(path_var)
+            for exefile in exefiles:
+                if exefile.name == name:
                     found = True
                     break
             if found:
                 break
-        with self.file_conn.cursor() as cursor:
-            table_name = str(fid_name_tup[0]) + "_"
-            #sql = "SELECT * FROM %s ORDER BY `ln`" % table_name
-            sql = "SELECT * FROM testBlob ORDER BY `ln`"
+        if not found:
+            # cannot find the command
+            print("-bash: %s: command not found" % (name))
+            return
+        with self.connection.cursor() as cursor:
+            sql = "SELECT unhex(data) AS data FROM fileContent_t where fid = %s" % (exefile.fid)
             cursor.execute(sql)
             results = cursor.fetchall()
-            if os.path.exists("tempexec2"):
-                os.remove("tempexec2")
-
-            f = open("tempexec2", "ab")
-            for result in results:
-                f.write(result['data'])
+            if os.path.exists("tempexec"):
+                os.remove("tempexec")
+            f = open("tempexec", "wb")
+            f.write(results[0]['data'])
             f.close()
+        arguments = " ".join(args[1:])
+        os.system("./tempexec " + arguments)
+
+    def find(self, path, args):
+        find_set = []
+        name = user = inodeNum = linkNum = None
+        for i in range(len(args)):
+            if args[i] == '-name':
+                i = i + 1
+                name = args[i]
+            elif args[i] == '-user':
+                i = i + 1
+                user = args[i]
+            # elif args[i] == '-perm':
+            #     i = i + 1
+            #     perm = args[i]
+            elif args[i] == '-inum':
+                i = i + 1
+                inodeNum = args[i]
+            elif args[i] == '-links':
+                i = i + 1
+                linkNum = args[i]
+        with self.connection.cursor() as cursor:
+            # find path
+            abspath = path + "%"
+            sql = "\
+            SELECT * FROM file_t F\
+            INNER JOIN user_t U \
+            USING (uid) \
+            INNER JOIN group_t G\
+            USING (gid) \
+            LEFT JOIN \
+            (select symbolicLink_t.fid AS fid, symbolicLink_t.pfid AS sid, symbolic.name AS sname from symbolicLink_t INNER JOIN (SELECT fid, name from file_t) AS symbolic ON symbolic.fid=symbolicLink_t.pfid) S \
+            ON F.fid=S.fid \
+            WHERE `abspath` like '%s'" % (abspath)
+            if name:
+                name = name.replace("*", "%")
+                sql += " AND F.name like '%s'" % (name)
+            if user:
+                if user.isdigit():
+                    sql += " AND (F.uid = %d)" % int(user)
+                else:
+                    sql += " AND (U.name = '%s')" % (user)
+            # if perm:
+            #     sql += " AND "
+            if inodeNum:
+                sql += " AND `F.inode` = '%s'" % (inodeNum)
+            if linkNum:
+                sql += " AND `F.numoflinks` = '%s'" % (linkNum)
+            print(sql)
+            cursor.execute(sql)
+            results = cursor.fetchall()
+            for result in results:
+                name = result['name']
+                fid = result['fid']
+                permission = self.get_permission(result)
+                num_links = result['numoflinks']
+                user = result['U.name'].rstrip('\r')
+                group = result['G.name'].rstrip('\r')
+                size = result['size']
+                date_time = datetime.fromtimestamp(result['mtime'])
+                time_str = date_time.strftime('%B %d %H:%M:%S')
+                slink_name = result['sname']
+                abs_path = result['abspath'].rstrip('\r')
+                file = File(fid, name, permission, num_links, user, group, size, time_str, slink_name, abs_path)
+                find_set.append(file)
+        return find_set
+
+
+
 
 
 
