@@ -8,19 +8,13 @@ import mimetypes
 
 RDBSH_DB='rdbsh'
 RDBSH_FILE='rdbshfile'
-# TABLES=['file_t', 'fileType_t', 'permissionType_t', 'user_t', 'group_t', 'pathVar_t',
-#     'symbolicLink_t', 'hardLink_t']
-TABLES=['file_t', 'user_t', 'group_t', 'pathVar_t', 'symbolicLink_t', 'hardLink_t']
 
-# FILE_T_ATTR=['id', 'inode', 'dev', 'type', 'op', 'gp', 'tp', 'num_of_links', 
-#     'owner_id', 'group_id', 'size', 'time', 'name', 'parentID', 'abs_path']
+TABLES=['file_t', 'user_t', 'group_t', 'pathVar_t', 'symbolicLink_t', 'hardLink_t']
 
 FILE_T_ATTR = ['fid', 'inode', 'ftype', 'op', 'gp', 'tp', 'numoflinks', 
     'uid', 'size', 'ctime', 'mtime', 'name', 'pid', 'abspath']
 
 FILE_TABLE_NAME='file_t'
-# FILE_TYPE_TABLE_NAME='fileType_t'
-# PERMISSION_TYPE_TABLE_NAME='permissionType_t'
 USER_TABLE_NAME='user_t'
 GROUP_TABLE_NAME='group_t'
 PATH_VAR_TABLE_NAME='pathVar_t'
@@ -54,8 +48,6 @@ def load_reg_file_content(mycursor):
         reader = csv.reader(r_file)
         next(reader)
 
-        # table_name_dic = {}
-
         # remove 'temp_unix' from fake_file_path
         temp_unix_len = len('temp_unix')
 
@@ -67,51 +59,33 @@ def load_reg_file_content(mycursor):
 
         for path in reader:
             fake_file_path = os.path.abspath(path[0])
-            table_name = Path(path[0]).resolve().stem
+            # table_name = Path(path[0]).resolve().stem
             
             temp_unix_index = fake_file_path.index('temp_unix')
             start_pos = temp_unix_index + temp_unix_len
-            # table_name = fake_file_path[temp_unix_len:]
             real_path = fake_file_path[start_pos:]
 
             fid = -1
             if real_path in file_id_by_path:
-                # table_name = str(file_id_by_path[real_path])
-                # table_name = table_name.translate(str.maketrans('', '', string.punctuation))
                 fid = file_id_by_path[real_path]
-                table_name = str(fid) + '_'
-                # table_name = table_name.replace('.', '').replace('-', '')
+                # table_name = str(fid) + '_'
             else:
-                print('Warn: no ' + str(fake_file_path) + ' found in file_t file')
+                print('Warn: no ' + str(real_path) + ' found in file_t file')
                 continue
             
             with open(fake_file_path, 'rb') as f:
                 file_content = f.read()
                 try:
-                    # if (table_name != '688_'):
-                    #     continue
                     query = """
                         insert into {} ({}, {})
                         values (%s, hex(%s));
                         """.format(FILE_CONTENT_TABLE_NAME, 'fid', 'data')
-                    # query = """
-                    #     insert into {} ({}, {})
-                    #     values (%s, %s);
-                    #     """.format(FILE_CONTENT_TABLE_NAME, 'fid', 'data')
                     args = (fid, file_content)
                     mycursor.execute(query, args)
                 except mysql.connector.Error as err:
                     print("Error: " + err.msg)
                     print("Failed file path is: " + str(path[0]))
 
-            # print('table name: ' + str(table_name))
-
-            # if table_name in table_name_dic:
-            #     print('table name duplicated: ' + table_name)
-            #     table_name_dic[table_name] += 1
-            #     table_name = table_name + str(table_name_dic[table_name])
-            # else:
-            #     table_name_dic[table_name] = 0
 '''
             try:
                 # try:
@@ -198,18 +172,6 @@ def create_tables(mycursor):
         abspath varchar(255)
     )""".format(FILE_TABLE_NAME))
 
-    # mycursor.execute("""create table {} (
-    #     uid varchar(10),
-    #     type varchar(20)
-    # )""".format(FILE_TYPE_TABLE_NAME))
-
-    # mycursor.execute("""create table {} (
-    #     id int primary key,
-    #     pr varchar(10),
-    #     pw varchar(10),
-    #     pe varchar(10)
-    # )""".format(PERMISSION_TYPE_TABLE_NAME))
-
     mycursor.execute("""create table {} (
         uid int,
         name varchar(255),
@@ -235,10 +197,11 @@ def create_tables(mycursor):
         dev int
     )""".format(HARD_LINK_TABLE_NAME))
 
+'''
 def load_csv(mycursor):
     for table in TABLES:
         csv_path = os.path.abspath('csv/'+table+'.csv')
-        # print('csv path: ' + str(csv_path))
+
         mycursor.execute("""
         load data local infile '{}' into table {}
         fields terminated by ','
@@ -297,6 +260,7 @@ def add_constraints(mycursor):
         add foreign key(fid) references {}(fid),
         add foreign key(pfid) references {}(fid)
     """.format(SYMLINK_TABLE_NAME, FILE_TABLE_NAME, FILE_TABLE_NAME))
+'''
 
 def main():
     sql_user_name = sys.argv[1]

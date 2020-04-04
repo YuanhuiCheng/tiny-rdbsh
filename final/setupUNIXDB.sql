@@ -109,34 +109,32 @@ create index abspath_index on file_t(abspath);
 
 load data local infile '/Users/yuanhuicheng/Documents/ECE/ECE356/Project/ECE356-Dumb-Project/final/csv/hardLink_t.csv' into table hardLink_t
     fields terminated by ','
-    lines terminated by '\n'
+    lines terminated by '\r\n'
     ignore 1 lines;
 
 load data local infile '/Users/yuanhuicheng/Documents/ECE/ECE356/Project/ECE356-Dumb-Project/final/csv/group_t.csv' into table group_t
     fields terminated by ','
-    lines terminated by '\n'
+    lines terminated by '\r\n'
     ignore 1 lines;
 
 load data local infile '/Users/yuanhuicheng/Documents/ECE/ECE356/Project/ECE356-Dumb-Project/final/csv/user_t.csv' into table user_t
     fields terminated by ','
-    lines terminated by '\n'
+    lines terminated by '\r\n'
     ignore 1 lines;
 
 load data local infile '/Users/yuanhuicheng/Documents/ECE/ECE356/Project/ECE356-Dumb-Project/final/csv/file_t.csv' into table file_t
     fields terminated by ','
-    enclosed by '"'
-    lines terminated by '\n'
+    lines terminated by '\r\n'
     ignore 1 lines;
 
 load data local infile '/Users/yuanhuicheng/Documents/ECE/ECE356/Project/ECE356-Dumb-Project/final/csv/pathVar_t.csv' into table pathVar_t
     fields terminated by ','
-    lines terminated by '\n'
+    lines terminated by '\r\n'
     ignore 1 lines;
 
 load data local infile '/Users/yuanhuicheng/Documents/ECE/ECE356/Project/ECE356-Dumb-Project/final/csv/symbolicLink_t.csv' into table symbolicLink_t
     fields terminated by ','
-    lines terminated by '\n'
+    lines terminated by '\r\n'
     ignore 1 lines;
 
-
-
+source rdbsh.sql;

@@ -1,8 +1,5 @@
 SQL_USER_NAME=$1
 SQL_USER_PWD=$2
-SQL_REMOTE_HOST_URL=$3
-SQL_REMOTE_USER_NAME=$4
-SQL_REMOTE_USER_PWD=$5
 
 IMAGE_NAME="yellow82cheng/ubuntu-dog"
 CONTAINER_NAME="lightu"
@@ -47,19 +44,13 @@ docker cp $CONTAINER_NAME:$WKR_ROOT_DIR $TEMP_UNIX_DIR
 cd ../final/
 
 # don't forget to create a database first
-# mysql --user=$SQL_USER_NAME --password=$SQL_USER_PWD --database=$RDBSH_DB_NAME --execute="source $RDBSH_EXECUTABLE_SQL;" --local-infile=true
 mysql --user=$SQL_USER_NAME --password=$SQL_USER_PWD --execute="source $RDBSH_EXECUTABLE_SQL;" --local-infile=true
 echo "rdbsh system finished"
 
 cd ../move_unix_box
 
-python3 mysql_exe.py $SQL_USER_NAME $SQL_USER_PWD $SQL_REMOTE_HOST_URL $SQL_REMOTE_USER_NAME $SQL_REMOTE_USER_PWD
+python3 mysql_exe.py $SQL_USER_NAME $SQL_USER_PWD
 echo "rdbsh file load finished"
 
 mysqldump -u$SQL_USER_NAME -p$SQL_USER_PWD $RDBSH_DB_NAME > ../final/${RDBSH_DB_NAME}.sql
 echo "rdbsh dump finished"
-
-# # move database from your host to your vm
-# if [ $# == 5 ]; then
-#     mysqldump -u$SQL_USER_NAME -p$SQL_USER_PWD $RDBSH_DB_NAME | mysql -h$SQL_REMOTE_HOST_URL -u$SQL_REMOTE_USER_NAME -p$SQL_REMOTE_USER_PWD $RDBSH_DB_NAME 
-# fi
