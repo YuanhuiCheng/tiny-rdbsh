@@ -5,9 +5,6 @@ from sqlutil import SQLUtil
 
 work_dir = '/'
 
-# allowed_commands = ('ls', 'cd', 'find', 'grep', 'path')
-
-
 def simplify_path(path):
     ''' Simplify . // and .. in path '''
     stack = []
@@ -19,21 +16,11 @@ def simplify_path(path):
             stack.append(p)
     return '/' + '/'.join(stack)
 
-
-def is_valid_input(text):
-    if not text in allowed_commands:
-        return False
-    else:
-        return True
-
 sqlutil = SQLUtil()
 
 while True:
     text = prompt(work_dir + ' > $ ')
     args = text.split(' ')
-
-    # if not is_valid_input(args[0]):
-    #     print('Command not supported. Valid commands are: ' + ' '.join(allowed_commands))
 
     if args[0].startswith('ls'):
         prop = False
@@ -60,6 +47,7 @@ while True:
                 print(file.name)
             else:
                 file.lprint()
+
     elif args[0].startswith('cd'):
         if len(args) == 1:
             work_dir = '/'
@@ -71,11 +59,13 @@ while True:
             if sqlutil.check_path_exists(temp_work_dir, 'd'):
                 work_dir = temp_work_dir
             else:
-                print('cd: no such file or directory: %s', temp_work_dir)
+                print('cd: no such directory: %s', work_dir)
+
     elif args[0].startswith('path'):
         # path maintanence
         path = sqlutil.path_var()
         print(':'.join(path))
+
     elif args[0].startswith('find'):
         if args[1].startswith('/'):
             path = args[1]
@@ -84,6 +74,20 @@ while True:
         files = sqlutil.find(path, args[2:])
         for file in files:
             file.fprint(work_dir)
+
+    elif args[0].startswith('grep'):
+        if args[1].startswith('/'):
+            file_abspath= args[2]
+        else:
+            file_abspath = simplify_path(work_dir + '/' + args[2])
+        files = sqlutil.grep(args[1], file_abspath)
+        for file in files:
+            file.gprint(args[1])
+
+    elif args[0].startswith('q'):
+        print("Goodbye!")
+        break
+        
     else:  
         # execute executable functions 
         exec_exists = sqlutil.get_executable(args)

@@ -1,7 +1,9 @@
 import pymysql.cursors
 import os
+import re
 from datetime import datetime
 
+# create a file object for pretty print
 class File(object):
     def __init__(self, fid, name, permission=None, num_links=None, user=None, group=None, size=None, mtime=None, slink_name=None, abs_path=None):
         self.fid = fid
@@ -31,6 +33,23 @@ class File(object):
             path = "%s -> %s" % (path, self.slink_name)
         print(self.permission, self.num_links, self.user, self.group, self.size, self.mtime, path)
 
+    # grep pretty print
+    def gprint(self, pattern):
+        print(pattern)
+        with open(self.name, 'r') as read_obj:
+            # Read all lines in the file one by one
+            line_num = 1
+            for line in read_obj:
+                # For each line, check if line contains the string
+                # print(re.search(pattern, line))
+                if re.search(pattern, line):
+                    # add in results
+                    print("%s: %d %s" % (self.name, line_num, line))
+                
+                line_num = line_num + 1
+
+        os.remove(self.name)
+
 class SQLUtil(object):
     def __init__(self):
         self.connection = pymysql.connect(host='localhost',
@@ -41,20 +60,16 @@ class SQLUtil(object):
                              cursorclass=pymysql.cursors.DictCursor)
 
     @staticmethod    
-    def build_path_regex(path):
+    def ls_path_regex(path):
         """ Make path to be in regex format ^\/path\/[^\/]+$"""
-        new_path = '^'
-        for c in path:
-            if c == '/':
-                new_path += "\\" + '/'
-            else:
-                new_path += c
-
         if path == "/":
-            new_path += "[^\\/]+\\r$"
+            return "^" + path.replace('/', '\\/') + "[^\\/]+\\\\r$"
         else:
-            new_path += "\\/[^\\/]+\\r$"
-        return new_path
+            return "^" + path.replace('/', '\\/') + "\\/[^\\/]+\\\\r$"
+
+    @staticmethod
+    def grep_path_regex(path):
+        return '^' + path.replace('/', '\\/').replace('*', '[^\\/]*') + '\\\\r$'
 
     @staticmethod
     def get_permission(result):
@@ -101,14 +116,10 @@ class SQLUtil(object):
             LEFT JOIN \
             (select symbolicLink_t.fid AS fid, symbolicLink_t.pfid AS sid, symbolic.name AS sname from symbolicLink_t INNER JOIN (SELECT fid, name from file_t) AS symbolic ON symbolic.fid=symbolicLink_t.pfid) S \
             ON file_t.fid=S.fid \
-            WHERE `abspath` REGEXP '%s'" % self.build_path_regex(path)
-            # print(sql)
+            WHERE `abspath` REGEXP '%s'" % self.ls_path_regex(path)
             cursor.execute(sql)
             results = cursor.fetchall()
-            # print(results)
             for result in results:
-                # Remove trailing \r and get path string after current path
-                # temp_path = result['abspath'].rstrip('\r')[len(path):].lstrip('/')
                 name = result['name']
                 fid = result['fid']
                 if not props:
@@ -118,7 +129,6 @@ class SQLUtil(object):
                     num_links = result['numoflinks']
                     user = result['user_t.name'].rstrip('\r')
                     group = result['group_t.name'].rstrip('\r')
-                    print(result)
                     size = result['size']
                     date_time = datetime.fromtimestamp(result['mtime'])
                     time_str = date_time.strftime('%B %d %H:%M:%S')
@@ -232,6 +242,29 @@ class SQLUtil(object):
                 file = File(fid, name, permission, num_links, user, group, size, time_str, slink_name, abs_path)
                 find_set.append(file)
         return find_set
+
+    def grep(self, pattern, abspath):
+        file_set = []
+        with self.connection.cursor() as cursor:
+            sql = "SELECT fid, unhex(data) as data, name FROM file_t \
+            INNER JOIN fileContent_t USING (fid) \
+            WHERE `abspath` REGEXP '%s' AND `ftype` = '-' AND unhex(data) REGEXP '%s'" % (self.grep_path_regex(abspath), pattern)
+            print(sql)
+            cursor.execute(sql)
+            results = cursor.fetchall()
+
+            for result in results:
+                filename = result['name'].rstrip('\r')
+                file = File(result['fid'], filename)
+                file_set.append(file)
+                if os.path.exists(filename):
+                    os.remove(filename)
+                f = open(filename, "wb")
+                f.write(result['data'])
+                f.close()
+
+        return file_set
+
 
 
 
