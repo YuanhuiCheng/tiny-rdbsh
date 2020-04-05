@@ -119,6 +119,15 @@ while True:
         for file in files:
             file.gprint(args[1])
 
+    elif args[0].startswith('extcluster'):
+        file_abspath = work_dir
+        if len(args) > 1:
+            if args[1].startswith('/'):
+                file_abspath = args[1]
+            else:
+                file_abspath = simplify_path(work_dir + '/' + args[1])
+        sqlutil.extcluster(file_abspath)
+
     elif args[0].startswith('quit'):
         print("Goodbye!")
         break

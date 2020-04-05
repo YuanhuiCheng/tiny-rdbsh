@@ -2,6 +2,7 @@ import pymysql.cursors
 import os
 import re
 from datetime import datetime
+from tabulate import tabulate
 
 # create a file object for pretty print
 class File(object):
@@ -88,6 +89,13 @@ class SQLUtil(object):
             else:
                 permission += permission_default[i]
         return permission
+
+    @staticmethod
+    def cluster_path_regex(path):
+        if path == "/":
+            return "^" + path.replace('/', '\\/') + ".+$"
+        else:
+            return "^" + path.replace('/', '\\/') + "\\/.+$"
 
     def check_path_exists(self, path, ftype):
         with self.connection.cursor() as cursor:
@@ -288,6 +296,32 @@ class SQLUtil(object):
                 f.close()
 
         return file_set
+
+    def extcluster(self, abspath):
+        with self.connection.cursor() as cursor:
+            sql = "SELECT fid, name, size FROM file_t WHERE ftype = '-' AND abspath REGEXP '%s'" \
+                % self.cluster_path_regex(abspath)
+            cursor.execute(sql)
+            results = cursor.fetchall()
+            ftype_dict = {}
+            for result in results:
+                pattern = '^.+\\.[^\\.0-9]+$'
+                # splits = result['name'].split('.')
+                if re.search(pattern, result['name']) is None:
+                    if 'N/A' in ftype_dict:
+                        ftype_dict['N/A'].append(result['size'])
+                    else:
+                        ftype_dict['N/A'] = [result['size']]
+                else:
+                    ext = result['name'].split('.')[-1]
+                    if ext in ftype_dict:
+                        ftype_dict[ext].append(result['size'])
+                    else:
+                        ftype_dict[ext] = [result['size']]
+
+            sorted_ftype = {k: v for k, v in sorted(ftype_dict.items(), key=lambda item: -len(item[1]))}
+            sorted_tab_list = [[k, len(v), str(round(sum(v) / len(v)))] for k, v in sorted_ftype.items()]
+            print(tabulate(sorted_tab_list, headers=['Ext', 'Count', 'Avg Size']))
 
 
 
