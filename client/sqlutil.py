@@ -138,7 +138,7 @@ class SQLUtil(object):
         return ls_set
 
     # echo all the path variable
-    def path_var(self):
+    def get_path_var(self):
         with self.connection.cursor() as cursor:
             sql = "SELECT `abspath` FROM `pathVar_t` p JOIN `file_t` f ON p.fid = f.fid"
             cursor.execute(sql)
@@ -148,6 +148,10 @@ class SQLUtil(object):
                 path_var = result['abspath'].rstrip('\r')
                 path_vars.append(path_var)
             return path_vars
+
+    def add_path_var(self, path, last_flag):
+        if last_flag:
+            
 
     # execute executable file
     def get_executable(self, args):
@@ -178,25 +182,8 @@ class SQLUtil(object):
         arguments = " ".join(args[1:])
         os.system("./tempexec " + arguments)
 
-    def find(self, path, args):
+    def find(self, path, name=None, user=None, inodeNum=None, linkNum=None):
         find_set = []
-        name = user = inodeNum = linkNum = None
-        for i in range(len(args)):
-            if args[i] == '-name':
-                i = i + 1
-                name = args[i]
-            elif args[i] == '-user':
-                i = i + 1
-                user = args[i]
-            # elif args[i] == '-perm':
-            #     i = i + 1
-            #     perm = args[i]
-            elif args[i] == '-inum':
-                i = i + 1
-                inodeNum = args[i]
-            elif args[i] == '-links':
-                i = i + 1
-                linkNum = args[i]
         with self.connection.cursor() as cursor:
             # find path
             abspath = path + "%"
@@ -218,8 +205,6 @@ class SQLUtil(object):
                     sql += " AND (F.uid = %d)" % int(user)
                 else:
                     sql += " AND (U.name = '%s')" % (user)
-            # if perm:
-            #     sql += " AND "
             if inodeNum:
                 sql += " AND `F.inode` = '%s'" % (inodeNum)
             if linkNum:
