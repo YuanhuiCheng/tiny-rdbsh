@@ -12,9 +12,7 @@ def simplify_path(path):
         if p == "..":
             if stack:
                 stack.pop()
-        elif p == "~":
-            stack = []
-        elif p and p != ".":
+        elif p and p != '.':
             stack.append(p)
     return '/' + '/'.join(stack)
 
@@ -61,68 +59,42 @@ while True:
             if sqlutil.check_path_exists(temp_work_dir, 'd'):
                 work_dir = temp_work_dir
             else:
-                print('cd: no such directory: %s', work_dir)
+                print('cd: no such directory: ', work_dir)
 
-    # $PATH gives all the path variable
-    elif args[0].startswith('$PATH'):
-        path = sqlutil.get_path_var()
+    elif args[0].startswith('path'):
+        # path maintanence
+        path = sqlutil.path_var()
         print(':'.join(path))
-    # PATH=$PATH:~/opt/bin add ~/opt/bin as a path variable
-    elif args[0].startswith('PATH'):
-        paths = args[0].split("=")[1].split(":")
-        last_flag = False # check if the new path should be insert at last or first
-        new_path = None
-        if paths[0] == "$PATH":
-            last_flag = True
-            new_path = simplify_path(paths[1])
-        else:
-            new_path = simplify_path(paths[0])
-        sqlutil.add_path_var(new_path, last_flag)
-    # rPATH /opt will remove /opt from $PATH
-    elif args[0].startswith('rPATH'):
-        sqlutil.delete_path_var(args[1])
 
     elif args[0].startswith('find'):
-        # set absolute path
         if args[1].startswith('/'):
             path = args[1]
         else:
             path = simplify_path(work_dir + '/' + args[1])
-        # set options arguments
-        name = user = inodeNum = linkNum = None
-        options = args[2:]
-        for i in range(len(options)):
-            if options[i] == '-name':
-                i = i + 1
-                name = options[i]
-            elif options[i] == '-user':
-                i = i + 1
-                user = options[i]
-            elif options[i] == '-inum':
-                i = i + 1
-                inodeNum = options[i]
-            elif options[i] == '-links':
-                i = i + 1
-                linkNum = options[i]
-        # Call sqlUtil to get all the files that match the contidions
-        files = sqlutil.find(path, name, user, inodeNum, linkNum)
-        # Pretty print all the info
+        files = sqlutil.find(path, args[2:])
         for file in files:
             file.fprint(work_dir)
 
     elif args[0].startswith('grep'):
-        if args[2].startswith('/'):
-            file_abspath= args[2]
+        if args[1].startswith('/'):
+            file_abspath = args[2]
         else:
             file_abspath = simplify_path(work_dir + '/' + args[2])
         files = sqlutil.grep(args[1], file_abspath)
         for file in files:
             file.gprint(args[1])
 
-    elif args[0].startswith('quit'):
+    elif args[0].startswith('q'):
         print("Goodbye!")
         break
-
+    elif args[0].startswith('extcluster'):
+        file_abspath = work_dir
+        if len(args) > 1:
+            if args[1].startswith('/'):
+                file_abspath = args[1]
+            else:
+                file_abspath = simplify_path(work_dir + '/' + args[1])
+        sqlutil.extcluster(file_abspath)        
     else:  
         # execute executable functions 
         exec_exists = sqlutil.get_executable(args)

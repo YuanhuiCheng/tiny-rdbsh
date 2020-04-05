@@ -2,6 +2,7 @@ import pymysql.cursors
 import os
 import re
 from datetime import datetime
+from tabulate import tabulate
 
 # create a file object for pretty print
 class File(object):
@@ -35,6 +36,7 @@ class File(object):
 
     # grep pretty print
     def gprint(self, pattern):
+        print(pattern)
         with open(self.name, 'r') as read_obj:
             # Read all lines in the file one by one
             line_num = 1
@@ -52,9 +54,9 @@ class File(object):
 class SQLUtil(object):
     def __init__(self):
         self.connection = pymysql.connect(host='localhost',
-                             user='zz',
-                             password='152314zzz',
-                             db='rdbsh2',
+                             user='root',
+                             password='wdtda2907',
+                             db='rdbsh',
                              charset='utf8mb4',
                              cursorclass=pymysql.cursors.DictCursor)
 
@@ -64,11 +66,18 @@ class SQLUtil(object):
         if path == "/":
             return "^" + path.replace('/', '\\/') + "[^\\/]+$"
         else:
-            return "^" + path.replace('/', '\\/') + "\\/[^\\/]+"
+            return "^" + path.replace('/', '\\/') + "\\/[^\\/]+$"
 
     @staticmethod
     def grep_path_regex(path):
-        return '^' + path.replace('/', '\\/').replace('*', '[^\\/]*') + '$'
+        return '^' + path.replace('/', '\\/').replace('*', '[^\\/]*')
+
+    @staticmethod
+    def cluster_path_regex(path):
+        if path == "/":
+            return "^" + path.replace('/', '\\/') + ".+$"
+        else:
+            return "^" + path.replace('/', '\\/') + "\\/.+$"
 
     @staticmethod
     def get_permission(result):
@@ -93,6 +102,7 @@ class SQLUtil(object):
         with self.connection.cursor() as cursor:
             # Read a single record
             sql = "SELECT `abspath` FROM `file_t` WHERE `abspath`='%s' AND `ftype`='%s'" % (path, ftype)
+            # print(sql)
             cursor.execute(sql)
             results = cursor.fetchall()
             if len(results) == 0:
@@ -104,6 +114,7 @@ class SQLUtil(object):
         ls_set = []
         with self.connection.cursor() as cursor:
             # Read a single record
+            # print(path)
             sql = "\
             SELECT * FROM file_t \
             INNER JOIN user_t \
@@ -114,6 +125,7 @@ class SQLUtil(object):
             (select symbolicLink_t.fid AS fid, symbolicLink_t.pfid AS sid, symbolic.name AS sname from symbolicLink_t INNER JOIN (SELECT fid, name from file_t) AS symbolic ON symbolic.fid=symbolicLink_t.pfid) S \
             ON file_t.fid=S.fid \
             WHERE `abspath` REGEXP '%s'" % self.ls_path_regex(path)
+            print(sql)
             cursor.execute(sql)
             results = cursor.fetchall()
             for result in results:
@@ -134,10 +146,10 @@ class SQLUtil(object):
                     ls_set.append(file)
         return ls_set
 
-    # echo all the $PATH with priority
-    def get_path_var(self):
+    # echo all the path variable
+    def path_var(self):
         with self.connection.cursor() as cursor:
-            sql = "SELECT `abspath` FROM `pathVar_t` p JOIN `file_t` f ON p.fid = f.fid ORDER BY p.prior"
+            sql = "SELECT `abspath` FROM `pathVar_t` p JOIN `file_t` f ON p.fid = f.fid"
             cursor.execute(sql)
             results = cursor.fetchall()
             path_vars = []
@@ -145,59 +157,11 @@ class SQLUtil(object):
                 path_var = result['abspath'].rstrip('\r')
                 path_vars.append(path_var)
             return path_vars
-    # add path into the $PATH
-    def add_path_var(self, path, last_flag):
-        with self.connection.cursor() as cursor:
-            # first check if the path exists in the file_t table
-            sql = "SELECT `fid` FROM `file_t` WHERE `abspath` = '%s'" % (path)
-            cursor.execute(sql)
-            results = cursor.fetchall()
-            if not results:
-                print("Error: %s doesn't exists" % (path))
-                return
-            fid = results[0]['fid']
-            # check if the path already exists in the path variable
-            sql = "SELECT EXISTS(SELECT * from `pathVar_t` WHERE `fid` = %d)" % (fid)
-            cursor.execute(sql)
-            results = cursor.fetchall()
-            if results[0] == 1:
-                print("Error: %s already exists in the $PATH" % (path))
-                return
-            # insert the path into the path variable with proper priority
-            if last_flag:
-                sql = "INSERT INTO `pathVar_t`(prior, fid) SELECT MAX(prior) + 1, %d FROM `pathVar_t`" % (fid)
-                cursor.execute(sql)
-            else:
-                update_prior_sql = "UPDATE `pathVar_t` SET prior = prior + 1"
-                insert_sql = "INSERT INTO `pathVar_t`(prior, fid) VALUES (0, %d)" % (fid)
-                cursor.execute(update_prior_sql)
-                cursor.execute(insert_sql)
-
-            self.connection.commit()
-            return
-
-    def delete_path_var(self, path):
-        with self.connection.cursor() as cursor:
-            # check if path is in the $PATH
-            sql = "SELECT prior FROM `pathVar_t` p JOIN `file_t` f ON p.fid = f.fid WHERE `abspath` = '%s'" % (path)
-            cursor.execute(sql)
-            results = cursor.fetchall()
-            if not results:
-                print("Error: %s doesn't exist in the $PATH" % (path))
-                return
-            curr_prior = results[0]['prior']
-            delete_sql = "DELETE FROM `pathVar_t` WHERE `fid` = (SELECT `fid` FROM `file_t` WHERE `abspath` = '%s')" % (path)
-            update_prior_sql = "UPDATE `pathVar_t` SET prior = prior - 1 WHERE prior > %d" % (curr_prior)
-            cursor.execute(delete_sql)
-            cursor.execute(update_prior_sql)
-            
-            self.connection.commit()
-            return
 
     # execute executable file
     def get_executable(self, args):
         name = args[0]
-        path_vars = self.get_path_var()
+        path_vars = self.path_var()
         for path_var in path_vars:
             found = False
             exefiles = self.ls(path_var)
@@ -223,8 +187,25 @@ class SQLUtil(object):
         arguments = " ".join(args[1:])
         os.system("./tempexec " + arguments)
 
-    def find(self, path, name=None, user=None, inodeNum=None, linkNum=None):
+    def find(self, path, args):
         find_set = []
+        name = user = inodeNum = linkNum = None
+        for i in range(len(args)):
+            if args[i] == '-name':
+                i = i + 1
+                name = args[i]
+            elif args[i] == '-user':
+                i = i + 1
+                user = args[i]
+            # elif args[i] == '-perm':
+            #     i = i + 1
+            #     perm = args[i]
+            elif args[i] == '-inum':
+                i = i + 1
+                inodeNum = args[i]
+            elif args[i] == '-links':
+                i = i + 1
+                linkNum = args[i]
         with self.connection.cursor() as cursor:
             # find path
             abspath = path + "%"
@@ -246,6 +227,8 @@ class SQLUtil(object):
                     sql += " AND (F.uid = %d)" % int(user)
                 else:
                     sql += " AND (U.name = '%s')" % (user)
+            # if perm:
+            #     sql += " AND "
             if inodeNum:
                 sql += " AND `F.inode` = '%s'" % (inodeNum)
             if linkNum:
@@ -274,6 +257,7 @@ class SQLUtil(object):
             sql = "SELECT fid, unhex(data) as data, name FROM file_t \
             INNER JOIN fileContent_t USING (fid) \
             WHERE `abspath` REGEXP '%s' AND `ftype` = '-' AND unhex(data) REGEXP '%s'" % (self.grep_path_regex(abspath), pattern)
+            print(sql)
             cursor.execute(sql)
             results = cursor.fetchall()
 
@@ -288,6 +272,33 @@ class SQLUtil(object):
                 f.close()
 
         return file_set
+
+    def extcluster(self, abspath):
+        with self.connection.cursor() as cursor:
+            sql = "SELECT fid, name, size FROM file_t WHERE ftype = '-' AND abspath REGEXP '%s'" \
+                % self.cluster_path_regex(abspath)
+            cursor.execute(sql)
+            results = cursor.fetchall()
+            ftype_dict = {}
+            for result in results:
+                pattern = '^.+\\.[^\\.0-9]+$'
+                # splits = result['name'].split('.')
+                if re.search(pattern, result['name']) is None:
+                    if 'N/A' in ftype_dict:
+                        ftype_dict['N/A'].append(result['size'])
+                    else:
+                        ftype_dict['N/A'] = [result['size']]
+                else:
+                    ext = result['name'].split('.')[-1]
+                    if ext in ftype_dict:
+                        ftype_dict[ext].append(result['size'])
+                    else:
+                        ftype_dict[ext] = [result['size']]
+
+            sorted_ftype = {k: v for k, v in sorted(ftype_dict.items(), key=lambda item: -len(item[1]))}
+            sorted_tab_list = [[k, len(v), str(round(sum(v) / len(v)))] for k, v in sorted_ftype.items()]
+            print(tabulate(sorted_tab_list, headers=['Ext', 'Count', 'Avg Size']))
+
 
 
 
