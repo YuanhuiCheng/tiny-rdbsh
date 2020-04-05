@@ -1,1 +1,2 @@
 rdbsh.sql filter=lfs diff=lfs merge=lfs -text
+final/rdbsh_fileContent.sql filter=lfs diff=lfs merge=lfs -text
