@@ -19,7 +19,7 @@ user_attr = ['uid', 'name', 'gid']
 group_attr = ['gid', 'name']
 
 # 'pathVar' attributes
-path_attr = ['fid']
+path_attr = ['prior', 'fid']
 
 # 'symbolicLink' attributes
 sym_link_attr = ['fid', 'pfid']
@@ -323,7 +323,7 @@ def main():
                     path = paths[i]
                     file_property = file_by_path[path]
                     file_ID = file_property[file_attr.index('fid')]
-                    writer.writerow([file_ID])
+                    writer.writerow([i, file_ID])
                     
     with open('csv/symbolicLink_t.csv', 'w+') as w_csv:
         writer = csv.writer(w_csv)
