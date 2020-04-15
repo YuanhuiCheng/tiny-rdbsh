@@ -47,7 +47,13 @@ class File(object):
                     print("%s: %d %s" % (self.name, line_num, line))
                 
                 line_num = line_num + 1
+            read_obj.close()
+        os.remove(self.name)
 
+    def cprint(self):
+        with open(self.name, 'r') as read_obj:
+            print(read_obj.read())
+            read_obj.close()
         os.remove(self.name)
 
 class SQLUtil(object):
@@ -65,7 +71,7 @@ class SQLUtil(object):
         if path == "/":
             return "^" + path.replace('/', '\\/') + "[^\\/]+$"
         else:
-            return "^" + path.replace('/', '\\/') + "\\/[^\\/]+"
+            return "^" + path.replace('/', '\\/') + "\\/[^\\/]+$"
 
     @staticmethod
     def grep_path_regex(path):
@@ -124,6 +130,7 @@ class SQLUtil(object):
             WHERE `abspath` REGEXP '%s'" % self.ls_path_regex(path)
             cursor.execute(sql)
             results = cursor.fetchall()
+            total_size = 0
             for result in results:
                 name = result['name']
                 fid = result['fid']
@@ -135,12 +142,13 @@ class SQLUtil(object):
                     user = result['user_t.name'].rstrip('\r')
                     group = result['group_t.name'].rstrip('\r')
                     size = result['size']
+                    total_size += size
                     date_time = datetime.fromtimestamp(result['mtime'])
                     time_str = date_time.strftime('%B %d %H:%M:%S')
                     slink_name = result['sname']
                     file = File(fid, name, permission, num_links, user, group, size, time_str, slink_name)
                     ls_set.append(file)
-        return ls_set
+        return ls_set, total_size
 
     # echo all the $PATH with priority
     def get_path_var(self):
@@ -259,6 +267,7 @@ class SQLUtil(object):
             if linkNum:
                 sql += " AND `F.numoflinks` = '%s'" % (linkNum)
             cursor.execute(sql)
+            print(sql)
             results = cursor.fetchall()
             for result in results:
                 name = result['name']
@@ -296,6 +305,31 @@ class SQLUtil(object):
                 f.close()
 
         return file_set
+
+    def cat(self, abspath):
+        with self.connection.cursor() as cursor:
+            sql = "SELECT fid, name, ftype FROM file_t WHERE abspath = '%s' AND (ftype = 'd' OR ftype = '-')" % (abspath)
+            cursor.execute(sql)
+            results = cursor.fetchall()
+            if not results:
+                print("cat: %s: No such file or directory" % (abspath.split('/')[-1]))
+                return
+            if results[0]['ftype'] == 'd':
+                print("cat: %s: Is a directory" % (abspath.split('/')[-1]))
+
+            filename = results[0]['name']
+            fid = results[0]['fid']
+            file = File(fid, filename)
+            fileContent_sql = "SELECT unhex(data) as data from fileContent_t WHERE fid = %d" % (results[0]['fid'])
+            cursor.execute(fileContent_sql)
+            results = cursor.fetchall()
+            if os.path.exists(filename):
+                os.remove(filename)
+            f = open(filename, "wb")
+            f.write(results[0]['data'])
+            f.close()
+        return file
+
 
     def extcluster(self, abspath):
         with self.connection.cursor() as cursor:

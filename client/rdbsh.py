@@ -43,7 +43,9 @@ while True:
             else:
                 path = work_dir + '/' + args[index_arg]
 
-        files = sqlutil.ls(simplify_path(path), prop)
+        files, total_size = sqlutil.ls(simplify_path(path), prop)
+        if prop:
+            print("total %d" % (total_size))
         for file in files:
             if not prop:
                 print(file.name)
@@ -61,7 +63,7 @@ while True:
             if sqlutil.check_path_exists(temp_work_dir, 'd'):
                 work_dir = temp_work_dir
             else:
-                print('cd: no such directory: %s', work_dir)
+                print("cd: no such directory: %s" % (temp_work_dir))
 
     # $PATH gives all the path variable
     elif args[0].startswith('$PATH'):
@@ -82,6 +84,7 @@ while True:
     elif args[0].startswith('rPATH'):
         sqlutil.delete_path_var(args[1])
 
+    # find / -name *.py
     elif args[0].startswith('find'):
         # set absolute path
         if args[1].startswith('/'):
@@ -119,6 +122,18 @@ while True:
         for file in files:
             file.gprint(args[1])
 
+    # only accept one parameter 
+    # eg: cat filename(regular file)/directory 
+    elif args[0].startswith('cat'):
+        if args[1].startswith('/'):
+            abspath= args[1]
+        else:
+            abspath = simplify_path(work_dir + '/' + args[1])
+        file = sqlutil.cat(abspath)
+        if file:
+            file.cprint()
+
+    # aggregate file size by extension
     elif args[0].startswith('extcluster'):
         file_abspath = work_dir
         if len(args) > 1:
