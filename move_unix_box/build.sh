@@ -53,6 +53,6 @@ cd ../move_unix_box
 python3 mysql_exe.py $SQL_USER_NAME $SQL_USER_PWD
 echo "rdbsh file load finished"
 
-mysqldump -u$SQL_USER_NAME -p$SQL_USER_PWD $RDBSH_DB_NAME $FILE_CONTENT_TABLE_NAME > ../final/rdbsh_fileContent.sql
+mysqldump -u$SQL_USER_NAME -p$SQL_USER_PWD $RDBSH_DB_NAME $FILE_CONTENT_TABLE_NAME > ../final/file_contents/rdbsh_fileContent.sql
 mysqldump -u$SQL_USER_NAME -p$SQL_USER_PWD $RDBSH_DB_NAME > ../${RDBSH_DB_NAME}.sql
 echo "rdbsh dump finished"

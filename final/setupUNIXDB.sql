@@ -10,13 +10,13 @@ drop table if exists group_t;
 drop table if exists pathVar_t;
 drop table if exists symbolicLink_t;
 drop table if exists hardLink_t;
-
--- drop table if exists fileContent_t;
+drop table if exists fileContent_t;
 
 -- create tables
 
 -- fid: file ID
 -- inode: index node that describes the attributes and disk block locations
+-- dev: the device that inode resides on
 -- ftype: file type (d: Directory, -: Regular, l: Symoblic link, c: Character special, b: Block special, p: FIFO, s: Socket, do: Door, ep: Event port, wo: Whiteout)
 -- op: owner permission
 -- gp: group permission
@@ -25,13 +25,12 @@ drop table if exists hardLink_t;
 -- uid: ID of the owner of the file
 -- size: file size, expressed in bytes
 -- ctime: creation time of the file
--- mtime: modification time of the file
 -- name: file name
--- pid: ID of parent directory
 -- abspath: absolute path
 create table file_t (
     fid int,
     inode int,
+    dev int,
     ftype varchar(10), 
     op int,
     gp int,
@@ -42,7 +41,6 @@ create table file_t (
     ctime float, 
     mtime float,
     name varchar(255),
-    pid int,
     abspath varchar(255)
 );
 
@@ -63,80 +61,80 @@ create table group_t (
 );
 
 -- prior: priority of path variable
--- fid: ID of the path variables
+-- abspath: absolute path of path variable
 create table pathVar_t (
     prior int,
-    fid int
+    abspath varchar(255)
 );
 
--- fid: ID of the symbolic link
--- pfid: ID of the file the link points to
+-- abspath: absolute path of the symbolic link
+-- pabspath: absolute path of the file the link points to
 create table symbolicLink_t (
-    fid int,
-    pfid int
+    abspath varchar(255),
+    pabspath varchar(255)
 );
 
--- inode: index node
--- dev: device that the inode resides
-create table hardLink_t (
-    inode int,
-    dev int
+-- fid: file id
+-- data: the file content
+create table fileContent_t (
+    fid int,
+    data longblob
 );
 
 -- add constraints
 
 -- add primary keys
 
-alter table hardLink_t add primary key(inode, dev);
-alter table file_t add primary key(fid);
+alter table file_t add primary key(abspath);
 alter table group_t add primary key(gid);
 alter table user_t add primary key(uid);
-alter table symbolicLink_t add primary key(fid, pfid);
+alter table pathVar_t add primary key(abspath);
+alter table symbolicLink_t add primary key(abspath, pabspath);
+alter table fileContent_t add primary key(fid);
 
 -- add foreign keys
 
-alter table file_t add foreign key(inode) references hardLink_t(inode);
 alter table file_t 
     add foreign key(uid) references user_t(uid);
-alter table pathVar_t add foreign key(fid) references file_t(fid);
+-- alter table fileContent_t add foreign key(fid) references file_t(fid);
+alter table pathVar_t add foreign key(abspath) references file_t(abspath);
 alter table symbolicLink_t 
-    add foreign key(fid) references file_t(fid),
-    add foreign key(pfid) references file_t(fid);
+    add foreign key(abspath) references file_t(abspath),
+    add foreign key(pabspath) references file_t(abspath);
 
 -- add indexes
 
-create index abspath_index on file_t(abspath);
+-- create index abspath_index on file_t(abspath);
+create index filetype_index on file_t(ftype);
+create index filename_index on file_t(name);
+create index fileid_index on file_t(fid);
 
 -- load csv
 
-load data local infile '/Users/yuanhuicheng/Documents/ECE/ECE356/Project/ECE356-Dumb-Project/final/csv/hardLink_t.csv' into table hardLink_t
+load data local infile 'csv/group_t.csv' into table group_t
     fields terminated by ','
     lines terminated by '\r\n'
     ignore 1 lines;
 
-load data local infile '/Users/yuanhuicheng/Documents/ECE/ECE356/Project/ECE356-Dumb-Project/final/csv/group_t.csv' into table group_t
+load data local infile 'csv/user_t.csv' into table user_t
     fields terminated by ','
     lines terminated by '\r\n'
     ignore 1 lines;
 
-load data local infile '/Users/yuanhuicheng/Documents/ECE/ECE356/Project/ECE356-Dumb-Project/final/csv/user_t.csv' into table user_t
+load data local infile 'csv/file_t.csv' into table file_t
     fields terminated by ','
     lines terminated by '\r\n'
     ignore 1 lines;
 
-load data local infile '/Users/yuanhuicheng/Documents/ECE/ECE356/Project/ECE356-Dumb-Project/final/csv/file_t.csv' into table file_t
+load data local infile 'csv/pathVar_t.csv' into table pathVar_t
     fields terminated by ','
     lines terminated by '\r\n'
     ignore 1 lines;
 
-load data local infile '/Users/yuanhuicheng/Documents/ECE/ECE356/Project/ECE356-Dumb-Project/final/csv/pathVar_t.csv' into table pathVar_t
+load data local infile 'csv/symbolicLink_t.csv' into table symbolicLink_t
     fields terminated by ','
     lines terminated by '\r\n'
     ignore 1 lines;
 
-load data local infile '/Users/yuanhuicheng/Documents/ECE/ECE356/Project/ECE356-Dumb-Project/final/csv/symbolicLink_t.csv' into table symbolicLink_t
-    fields terminated by ','
-    lines terminated by '\r\n'
-    ignore 1 lines;
-
--- source rdbsh_fileContent.sql;
+-- load dumped file contents into fileContent_t table
+source file_contents/rdbsh_fileContent.sql;

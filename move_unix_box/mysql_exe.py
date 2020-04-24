@@ -11,8 +11,8 @@ RDBSH_FILE='rdbshfile'
 
 TABLES=['file_t', 'user_t', 'group_t', 'pathVar_t', 'symbolicLink_t', 'hardLink_t']
 
-FILE_T_ATTR = ['fid', 'inode', 'ftype', 'op', 'gp', 'tp', 'numoflinks', 
-    'uid', 'size', 'ctime', 'mtime', 'name', 'pid', 'abspath']
+FILE_T_ATTR = ['fid', 'inode', 'dev', 'ftype', 'op', 'gp', 'tp', 'numoflinks', 
+    'uid', 'size', 'ctime', 'mtime', 'name', 'abspath']
 
 FILE_TABLE_NAME='file_t'
 USER_TABLE_NAME='user_t'
@@ -50,11 +50,11 @@ def load_reg_file_content(mycursor):
 
         temp_unix_len = len('temp_unix')
 
-        mycursor.execute("""
-            create table {} (
-            fid int,
-            data longblob)
-            """.format(FILE_CONTENT_TABLE_NAME))
+        # mycursor.execute("""
+        #     create table {} (
+        #     fid int,
+        #     data longblob)
+        #     """.format(FILE_CONTENT_TABLE_NAME))
 
         for path in reader:
             fake_file_path = os.path.abspath(path[0])

@@ -8,9 +8,8 @@ import re
 from pathlib import Path
 
 # 'file' attributes
-# may remove the 'name' and 'pid' columns
-file_attr = ['fid', 'inode', 'ftype', 'op', 'gp', 'tp', 'numoflinks', 
-    'uid', 'size', 'ctime', 'mtime', 'name', 'pid', 'abspath']
+file_attr = ['fid', 'inode', 'dev', 'ftype', 'op', 'gp', 'tp', 'numoflinks', 
+    'uid', 'size', 'ctime', 'mtime', 'name', 'abspath']
 
 # 'user' attributes
 user_attr = ['uid', 'name', 'gid']
@@ -19,10 +18,12 @@ user_attr = ['uid', 'name', 'gid']
 group_attr = ['gid', 'name']
 
 # 'pathVar' attributes
-path_attr = ['prior', 'fid']
+# path_attr = ['prior', 'fid']
+path_attr = ['prior', 'abspath']
 
 # 'symbolicLink' attributes
-sym_link_attr = ['fid', 'pfid']
+# sym_link_attr = ['fid', 'pfid']
+sym_link_attr = ['abspath', 'pabspath']
 sym_pointed_file_by_file = {}
 
 # 'hardLink' attributes
@@ -77,8 +78,8 @@ def analyze_attr(file_path, skipped_file):
     '''
     dev = info.st_dev
 
-    if [inode, dev] not in inode_dev_lst:
-        inode_dev_lst.append([inode, dev])
+    # if [inode, dev] not in inode_dev_lst:
+    #     inode_dev_lst.append([inode, dev])
 
     file_type = '' # get file type    
 
@@ -182,7 +183,7 @@ def analyze_attr(file_path, skipped_file):
     # get file size
     size = info.st_size
 
-    # get creation time or modification time 
+    # get creation time
     ctime = info.st_ctime
 
     # get modification time 
@@ -197,7 +198,7 @@ def analyze_attr(file_path, skipped_file):
     else:
         cnt_by_extension[ext] = 1
 
-    return [inode, file_type, op, gp, tp, num_of_links, owner_id, size, ctime, mtime]
+    return [inode, dev, file_type, op, gp, tp, num_of_links, owner_id, size, ctime, mtime]
 
 def main():
     print ("\n\n=====================================")
@@ -218,7 +219,8 @@ def main():
     root_att_lst = analyze_attr(walk_dir_abs_path, skipped_file)
     root_att_lst.insert(0, 1)
     root_att_lst.append('') # name of super root, given as empty string
-    root_att_lst.append(0)
+    # root_att_lst.append(0)
+    root_att_lst.append('/')
 
     file_by_path[walk_dir_abs_path] = root_att_lst
     print('walk_dir: ' + str(walk_dir_abs_path) + ' |walk_dir_att: ' + str(file_by_path[walk_dir_abs_path]))
@@ -258,7 +260,6 @@ def main():
                 continue
             rst_attr_lst.extend(att_lst)
             rst_attr_lst.append(sub_dir_name)
-            rst_attr_lst.append(parent_id)
 
             file_by_path[sub_dir_path] = rst_attr_lst
 
@@ -271,12 +272,11 @@ def main():
                 skipped_file.write('skip file (file): ' + file_path + '\n')
                 continue
 
-            file_by_path[file_path] = [file_id, filename, parent_id]
+            # file_by_path[file_path] = [file_id, filename]
             rst_attr_lst = [file_id]
 
             rst_attr_lst.extend(att_lst)
             rst_attr_lst.append(filename)
-            rst_attr_lst.append(parent_id)
 
             file_by_path[file_path] = rst_attr_lst
     
@@ -323,7 +323,9 @@ def main():
                     path = paths[i]
                     file_property = file_by_path[path]
                     file_ID = file_property[file_attr.index('fid')]
-                    writer.writerow([i, file_ID])
+                    abspath = file_property[file_attr.index('abspath')]
+                    # writer.writerow([i, file_ID])
+                    writer.writerow([i, abspath])
                     
     with open('csv/symbolicLink_t.csv', 'w+') as w_csv:
         writer = csv.writer(w_csv)
@@ -332,9 +334,11 @@ def main():
             try:
                 file_property = file_by_path[key]
                 pointed_file_property = file_by_path[value]
-                file_ID = file_property[file_attr.index('fid')]
-                pointed_file_ID = pointed_file_property[file_attr.index('fid')]
-                writer.writerow([file_ID, pointed_file_ID])
+                # file_ID = file_property[file_attr.index('fid')]
+                # pointed_file_ID = pointed_file_property[file_attr.index('fid')]
+                abspath = file_property[file_attr.index('abspath')]
+                pabspath = pointed_file_property[file_attr.index('abspath')]
+                writer.writerow([abspath, pabspath])
             except:
                 skipped_file.write('symlink may point to a non-exist file: ' + str(key) + ' -> ' + str(value) + '\n')
 

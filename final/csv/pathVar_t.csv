@@ -1,7 +1,7 @@
-prior,fid
-0,975
-1,969
-2,966
-3,962
-4,19
-5,6
+prior,abspath
+0,/usr/local/sbin
+1,/usr/local/bin
+2,/usr/sbin
+3,/usr/bin
+4,/sbin
+5,/bin
