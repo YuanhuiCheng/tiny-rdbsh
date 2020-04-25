@@ -5,9 +5,9 @@ from datetime import datetime
 from tabulate import tabulate
 import sys
 
-DB_HOST = 'localhost'
-DB_USER = 'zz'
-DB_PASSWORD = '152314zzz'
+DB_HOST = ''
+DB_USER = ''
+DB_PASSWORD = ''
 DB_NAME = 'rdbsh'
 # create a file object for pretty print
 class File(object):
@@ -327,7 +327,7 @@ class SQLUtil(object):
             cursor.execute(insert_filet_sql)
             insert_fileContent_sql = "INSERT INTO fileContent_t VALUES (%d, hex('%s'))" % (int(fid), content)
             cursor.execute(insert_fileContent_sql)
-            #self.connection.commit()
+            self.connection.commit()
         return
 
 
@@ -346,7 +346,6 @@ class SQLUtil(object):
             if result['ftype'] == 'l':
                 fid = result['fid']
                 ln_sql = "SELECT F.fid AS fid, name FROM file_t F INNER JOIN symbolicLink_t S ON F.abspath = S.pabspath WHERE S.abspath = '%s'" % (abspath)
-                print(ln_sql)
                 cursor.execute(ln_sql)
                 result = cursor.fetchone()
                 if not result:
@@ -381,13 +380,12 @@ class SQLUtil(object):
             fid = result['fidMax'] + 1
             inode = result['inodeMax'] + 1
             current_time = datetime.now().timestamp()
-            # pid 去掉 + dev
             insert_filet_sql = "INSERT INTO file_t VALUES (%d, %d, %d, '%s', %d, %d, %d, %d, %d, %d, %f, %f, '%s', '%s')" % \
                 (int(fid), int(inode), int(dev), 'l', 7, 5, 5, 1, 0, 9, current_time, current_time, newFile.split('/')[-1], newFile)
             insert_slinkt_sql = "INSERT INTO symbolicLink_t VALUES ('%s', '%s')" % (newFile, pabspath)
             cursor.execute(insert_filet_sql)
             cursor.execute(insert_slinkt_sql)
-            #self.connection.commit()
+            self.connection.commit()
         return
 
     def hlink(self, oriFile, newFile):
@@ -405,7 +403,7 @@ class SQLUtil(object):
             update_filet_sql = "UPDATE `file_t` SET numoflinks = %d WHERE abspath = '%s'" % (numoflinks, oriFile)
             cursor.execute(insert_filet_sql)
             cursor.execute(update_filet_sql)
-            #self.connection.commit()
+            self.connection.commit()
         return
 
 
@@ -418,7 +416,6 @@ class SQLUtil(object):
             ftype_dict = {}
             for result in results:
                 pattern = '^.+\\.[^\\.0-9]+$'
-                # splits = result['name'].split('.')
                 if re.search(pattern, result['name']) is None:
                     if 'N/A' in ftype_dict:
                         ftype_dict['N/A'].append(result['size'])
