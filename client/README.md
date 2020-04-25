@@ -36,7 +36,7 @@ cat command is used to display contents of the file or create a new short file. 
 10. ln \[-s\] \[source\] \[target\] <br/>
 ln command is used to create a hard link or a symbolic link to an existing file. Source is for the source file, and target is for the link. Without specifying `-s` option, it is creating a hard link, which points to the same inode(file content). With the `-s` option, it is creating a symlink, which refer to the source file by name.
 11. extcluster <br/>
-extcluster command is used to analyze the count and average size of the file group by the user-level file type.  
+extcluster command is used to analyze the count and average size of the file group by the user-level file type start from the current working directory.  
 12. quit <br/>
 quit command is used to end the CLI session.
 

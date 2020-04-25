@@ -62,7 +62,6 @@ while True:
                     temp_work_dir = args[1]
                 else:
                     temp_work_dir = simplify_path(work_dir + '/' + args[1])
-                print(temp_work_dir)
                 if sqlutil.check_path_exists(temp_work_dir, 'd'):
                     work_dir = temp_work_dir
                 else:

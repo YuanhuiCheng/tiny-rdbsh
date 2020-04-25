@@ -85,10 +85,14 @@ class SQLUtil(object):
     @staticmethod
     def get_permission(result):
         permission_default = 'drwxrwxrw'
+        permission_default_l = 'lrwxrwxrw'
         permission_bin = ''
         permission = ''
         if result['ftype'] == 'd':
             permission_bin += '1'
+        elif result['ftype'] == 'l':
+            permission_bin += '1'
+            permission_default = permission_default_l
         else:
             permission_bin += '0'
         permission_bin += "{0:b}".format(result['op']).zfill(3)
@@ -112,7 +116,6 @@ class SQLUtil(object):
         with self.connection.cursor() as cursor:
             # Read a single record
             sql = "SELECT `abspath` FROM `file_t` WHERE `abspath`='%s' AND `ftype`='%s'" % (path, ftype)
-            print(sql)
             cursor.execute(sql)
             results = cursor.fetchall()
             if len(results) == 0:
@@ -342,7 +345,8 @@ class SQLUtil(object):
             filename = result['name']
             if result['ftype'] == 'l':
                 fid = result['fid']
-                ln_sql = "SELECT F.fid AS fid, name FROM file_t F INNER JOIN symbolicLink_t S ON F.fid = S.pfid WHERE S.fid = %d" % (fid)
+                ln_sql = "SELECT F.fid AS fid, name FROM file_t F INNER JOIN symbolicLink_t S ON F.abspath = S.pabspath WHERE S.abspath = '%s'" % (abspath)
+                print(ln_sql)
                 cursor.execute(ln_sql)
                 result = cursor.fetchone()
                 if not result:
@@ -379,10 +383,8 @@ class SQLUtil(object):
             current_time = datetime.now().timestamp()
             # pid 去掉 + dev
             insert_filet_sql = "INSERT INTO file_t VALUES (%d, %d, %d, '%s', %d, %d, %d, %d, %d, %d, %f, %f, '%s', '%s')" % \
-                (int(fid), int(inode), int(dev), 'l', 7, 7, 7, 1, 0, 9, current_time, current_time, newFile.split('/')[-1], newFile)
-            print(insert_filet_sql)
+                (int(fid), int(inode), int(dev), 'l', 7, 5, 5, 1, 0, 9, current_time, current_time, newFile.split('/')[-1], newFile)
             insert_slinkt_sql = "INSERT INTO symbolicLink_t VALUES ('%s', '%s')" % (newFile, pabspath)
-            print(insert_slinkt_sql)
             cursor.execute(insert_filet_sql)
             cursor.execute(insert_slinkt_sql)
             #self.connection.commit()
@@ -400,9 +402,7 @@ class SQLUtil(object):
             current_time = datetime.now().timestamp()
             insert_filet_sql = "INSERT INTO file_t VALUES (%d, %d, %d, '%s', %d, %d, %d, %d, %d, %d, %f, %f, '%s', '%s')" % \
                 (result['fid'], result['inode'], result['dev'], result['ftype'], result['op'], result['gp'], result['tp'], numoflinks, 0, result['size'], current_time, current_time, newFile.split('/')[-1], newFile)
-            print(insert_filet_sql)
             update_filet_sql = "UPDATE `file_t` SET numoflinks = %d WHERE abspath = '%s'" % (numoflinks, oriFile)
-            print(update_filet_sql)
             cursor.execute(insert_filet_sql)
             cursor.execute(update_filet_sql)
             #self.connection.commit()
