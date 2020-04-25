@@ -3,7 +3,12 @@ import os
 import re
 from datetime import datetime
 from tabulate import tabulate
+import sys
 
+DB_HOST = 'localhost'
+DB_USER = 'zz'
+DB_PASSWORD = '152314zzz'
+DB_NAME = 'rdbsh'
 # create a file object for pretty print
 class File(object):
     def __init__(self, fid, name, permission=None, num_links=None, user=None, group=None, size=None, mtime=None, slink_name=None, abs_path=None):
@@ -58,10 +63,10 @@ class File(object):
 
 class SQLUtil(object):
     def __init__(self):
-        self.connection = pymysql.connect(host='localhost',
-                             user='zz',
-                             password='152314zzz',
-                             db='rdbsh2',
+        self.connection = pymysql.connect(host=DB_HOST,
+                             user=DB_USER,
+                             password=DB_PASSWORD,
+                             db=DB_NAME,
                              charset='utf8mb4',
                              cursorclass=pymysql.cursors.DictCursor)
 
@@ -107,6 +112,7 @@ class SQLUtil(object):
         with self.connection.cursor() as cursor:
             # Read a single record
             sql = "SELECT `abspath` FROM `file_t` WHERE `abspath`='%s' AND `ftype`='%s'" % (path, ftype)
+            print(sql)
             cursor.execute(sql)
             results = cursor.fetchall()
             if len(results) == 0:
@@ -125,8 +131,8 @@ class SQLUtil(object):
             INNER JOIN group_t \
             USING (gid) \
             LEFT JOIN \
-            (select symbolicLink_t.fid AS fid, symbolicLink_t.pfid AS sid, symbolic.name AS sname from symbolicLink_t INNER JOIN (SELECT fid, name from file_t) AS symbolic ON symbolic.fid=symbolicLink_t.pfid) S \
-            ON file_t.fid=S.fid \
+            (select symbolicLink_t.abspath AS fpath, symbolicLink_t.pabspath AS ppath, symbolic.name AS sname from symbolicLink_t INNER JOIN (SELECT abspath, name from file_t) AS symbolic ON symbolic.abspath=symbolicLink_t.pabspath) S \
+            ON file_t.abspath=S.fpath \
             WHERE `abspath` REGEXP '%s'" % self.ls_path_regex(path)
             cursor.execute(sql)
             results = cursor.fetchall()
@@ -153,12 +159,12 @@ class SQLUtil(object):
     # echo all the $PATH with priority
     def get_path_var(self):
         with self.connection.cursor() as cursor:
-            sql = "SELECT `abspath` FROM `pathVar_t` p JOIN `file_t` f ON p.fid = f.fid ORDER BY p.prior"
+            sql = "SELECT p.abspath AS 'path' FROM `pathVar_t` p JOIN `file_t` f USING (abspath) ORDER BY p.prior"
             cursor.execute(sql)
             results = cursor.fetchall()
             path_vars = []
             for result in results:
-                path_var = result['abspath'].rstrip('\r')
+                path_var = result['path'].rstrip('\r')
                 path_vars.append(path_var)
             return path_vars
     # add path into the $PATH
@@ -167,25 +173,24 @@ class SQLUtil(object):
             # first check if the path exists in the file_t table
             sql = "SELECT `fid` FROM `file_t` WHERE `abspath` = '%s'" % (path)
             cursor.execute(sql)
-            results = cursor.fetchall()
-            if not results:
+            result = cursor.fetchone()
+            if not result:
                 print("Error: %s doesn't exists" % (path))
                 return
-            fid = results[0]['fid']
             # check if the path already exists in the path variable
-            sql = "SELECT EXISTS(SELECT * from `pathVar_t` WHERE `fid` = %d)" % (fid)
+            sql = "SELECT EXISTS(SELECT * from `pathVar_t` WHERE `abspath` = '%s') AS exist" % (path)
             cursor.execute(sql)
-            results = cursor.fetchall()
-            if results[0] == 1:
+            result = cursor.fetchone()
+            if result['exist'] == 1:
                 print("Error: %s already exists in the $PATH" % (path))
                 return
             # insert the path into the path variable with proper priority
             if last_flag:
-                sql = "INSERT INTO `pathVar_t`(prior, fid) SELECT MAX(prior) + 1, %d FROM `pathVar_t`" % (fid)
+                sql = "INSERT INTO `pathVar_t`(prior, abspath) SELECT MAX(prior) + 1, '%s' FROM `pathVar_t`" % (path)
                 cursor.execute(sql)
             else:
                 update_prior_sql = "UPDATE `pathVar_t` SET prior = prior + 1"
-                insert_sql = "INSERT INTO `pathVar_t`(prior, fid) VALUES (0, %d)" % (fid)
+                insert_sql = "INSERT INTO `pathVar_t`(prior, abspath) VALUES (0, '%s')" % (path)
                 cursor.execute(update_prior_sql)
                 cursor.execute(insert_sql)
 
@@ -195,14 +200,14 @@ class SQLUtil(object):
     def delete_path_var(self, path):
         with self.connection.cursor() as cursor:
             # check if path is in the $PATH
-            sql = "SELECT prior FROM `pathVar_t` p JOIN `file_t` f ON p.fid = f.fid WHERE `abspath` = '%s'" % (path)
+            sql = "SELECT prior FROM `pathVar_t` WHERE `abspath` = '%s'" % (path)
             cursor.execute(sql)
-            results = cursor.fetchall()
-            if not results:
+            result = cursor.fetchone()
+            if not result:
                 print("Error: %s doesn't exist in the $PATH" % (path))
                 return
-            curr_prior = results[0]['prior']
-            delete_sql = "DELETE FROM `pathVar_t` WHERE `fid` = (SELECT `fid` FROM `file_t` WHERE `abspath` = '%s')" % (path)
+            curr_prior = result['prior']
+            delete_sql = "DELETE FROM `pathVar_t` WHERE `abspath` = '%s'" % (path)
             update_prior_sql = "UPDATE `pathVar_t` SET prior = prior - 1 WHERE prior > %d" % (curr_prior)
             cursor.execute(delete_sql)
             cursor.execute(update_prior_sql)
@@ -216,7 +221,7 @@ class SQLUtil(object):
         path_vars = self.get_path_var()
         for path_var in path_vars:
             found = False
-            exefiles = self.ls(path_var)
+            exefiles, _ = self.ls(path_var)
             for exefile in exefiles:
                 if exefile.name == name:
                     found = True
@@ -230,11 +235,11 @@ class SQLUtil(object):
         with self.connection.cursor() as cursor:
             sql = "SELECT unhex(data) AS data FROM fileContent_t where fid = %s" % (exefile.fid)
             cursor.execute(sql)
-            results = cursor.fetchall()
+            result = cursor.fetchone()
             if os.path.exists("tempexec"):
                 os.remove("tempexec")
             f = open("tempexec", "wb")
-            f.write(results[0]['data'])
+            f.write(result['data'])
             f.close()
         arguments = " ".join(args[1:])
         os.system("./tempexec " + arguments)
@@ -251,11 +256,11 @@ class SQLUtil(object):
             INNER JOIN group_t G\
             USING (gid) \
             LEFT JOIN \
-            (select symbolicLink_t.fid AS fid, symbolicLink_t.pfid AS sid, symbolic.name AS sname from symbolicLink_t INNER JOIN (SELECT fid, name from file_t) AS symbolic ON symbolic.fid=symbolicLink_t.pfid) S \
-            ON F.fid=S.fid \
+            (select symbolicLink_t.abspath AS fpath, symbolicLink_t.pabspath AS ppath, symbolic.name AS sname from symbolicLink_t INNER JOIN (SELECT abspath, name from file_t) AS symbolic ON symbolic.abspath=symbolicLink_t.pabspath) S \
+            ON F.abspath=S.fpath \
             WHERE `abspath` like '%s'" % (abspath)
             if name:
-                name = name.replace("*", "%")
+                name = name.replace("*", "%").replace("?", "_")
                 sql += " AND F.name like '%s'" % (name)
             if user:
                 if user.isdigit():
@@ -267,7 +272,6 @@ class SQLUtil(object):
             if linkNum:
                 sql += " AND `F.numoflinks` = '%s'" % (linkNum)
             cursor.execute(sql)
-            print(sql)
             results = cursor.fetchall()
             for result in results:
                 name = result['name']
@@ -306,29 +310,103 @@ class SQLUtil(object):
 
         return file_set
 
-    def cat(self, abspath):
+    def cat_create(self, name, abspath, content):
         with self.connection.cursor() as cursor:
-            sql = "SELECT fid, name, ftype FROM file_t WHERE abspath = '%s' AND (ftype = 'd' OR ftype = '-')" % (abspath)
+            get_fid_inode = "SELECT max(fid) AS fidMax, max(inode) AS inodeMax FROM file_t"
+            cursor.execute(get_fid_inode)
+            result = cursor.fetchone()
+            fid = result['fidMax'] + 1
+            inode = result['inodeMax'] + 1
+            current_time = datetime.now().timestamp()
+            size = sys.getsizeof(content)
+            insert_filet_sql = "INSERT INTO file_t VALUES (%d, %d, %d, '%s', %d, %d, %d, %d, %d, %d, %f, %f, '%s', '%s')" % \
+                (int(fid), int(inode), 112, '-', 6, 4, 4, 1, 0, size, current_time, current_time, name, abspath)
+            cursor.execute(insert_filet_sql)
+            insert_fileContent_sql = "INSERT INTO fileContent_t VALUES (%d, hex('%s'))" % (int(fid), content)
+            cursor.execute(insert_fileContent_sql)
+            #self.connection.commit()
+        return
+
+
+    def cat_view(self, abspath):
+        with self.connection.cursor() as cursor:
+            sql = "SELECT fid, name, ftype FROM file_t WHERE abspath = '%s' AND (ftype = 'd' OR ftype = '-' OR ftype = 'l')" % (abspath)
             cursor.execute(sql)
-            results = cursor.fetchall()
-            if not results:
+            result = cursor.fetchone()
+            if not result:
                 print("cat: %s: No such file or directory" % (abspath.split('/')[-1]))
                 return
-            if results[0]['ftype'] == 'd':
+            if result['ftype'] == 'd':
                 print("cat: %s: Is a directory" % (abspath.split('/')[-1]))
-
-            filename = results[0]['name']
-            fid = results[0]['fid']
+                return
+            filename = result['name']
+            if result['ftype'] == 'l':
+                fid = result['fid']
+                ln_sql = "SELECT F.fid AS fid, name FROM file_t F INNER JOIN symbolicLink_t S ON F.fid = S.pfid WHERE S.fid = %d" % (fid)
+                cursor.execute(ln_sql)
+                result = cursor.fetchone()
+                if not result:
+                    print("cat: %s: No such file or directory" % (abspath.split('/')[-1]))
+                    return
+            fid = result['fid']
             file = File(fid, filename)
-            fileContent_sql = "SELECT unhex(data) as data from fileContent_t WHERE fid = %d" % (results[0]['fid'])
+            fileContent_sql = "SELECT unhex(data) as data from fileContent_t WHERE fid = %d" % (fid)
             cursor.execute(fileContent_sql)
-            results = cursor.fetchall()
+            result = cursor.fetchone()
             if os.path.exists(filename):
                 os.remove(filename)
             f = open(filename, "wb")
-            f.write(results[0]['data'])
+            f.write(result['data'])
             f.close()
         return file
+
+    def slink(self, oriFile, newFile):
+        with self.connection.cursor() as cursor:
+            fetchori_sql = "SELECT abspath, dev FROM file_t WHERE abspath = '%s' AND ftype = '-'" % (oriFile)
+            cursor.execute(fetchori_sql)
+            result = cursor.fetchone()
+            if not result:
+                print("%s: No such file" % (oriFile.split('/')[-1]))
+                return
+            pabspath = result['abspath']
+            dev = result['dev']
+            # Get largest fid and inode
+            get_fid_inode = "SELECT max(fid) AS fidMax, max(inode) AS inodeMax FROM file_t"
+            cursor.execute(get_fid_inode)
+            result = cursor.fetchone()
+            fid = result['fidMax'] + 1
+            inode = result['inodeMax'] + 1
+            current_time = datetime.now().timestamp()
+            # pid 去掉 + dev
+            insert_filet_sql = "INSERT INTO file_t VALUES (%d, %d, %d, '%s', %d, %d, %d, %d, %d, %d, %f, %f, '%s', '%s')" % \
+                (int(fid), int(inode), int(dev), 'l', 7, 7, 7, 1, 0, 9, current_time, current_time, newFile.split('/')[-1], newFile)
+            print(insert_filet_sql)
+            insert_slinkt_sql = "INSERT INTO symbolicLink_t VALUES ('%s', '%s')" % (newFile, pabspath)
+            print(insert_slinkt_sql)
+            cursor.execute(insert_filet_sql)
+            cursor.execute(insert_slinkt_sql)
+            #self.connection.commit()
+        return
+
+    def hlink(self, oriFile, newFile):
+        with self.connection.cursor() as cursor:
+            fetchori_sql = "SELECT * FROM file_t WHERE abspath = '%s' AND ftype = '-'" % (oriFile)
+            cursor.execute(fetchori_sql)
+            result = cursor.fetchone()
+            if not result:
+                print("%s: No such file" % (oriFile.split('/')[-1]))
+                return
+            numoflinks = result['numoflinks'] + 1
+            current_time = datetime.now().timestamp()
+            insert_filet_sql = "INSERT INTO file_t VALUES (%d, %d, %d, '%s', %d, %d, %d, %d, %d, %d, %f, %f, '%s', '%s')" % \
+                (result['fid'], result['inode'], result['dev'], result['ftype'], result['op'], result['gp'], result['tp'], numoflinks, 0, result['size'], current_time, current_time, newFile.split('/')[-1], newFile)
+            print(insert_filet_sql)
+            update_filet_sql = "UPDATE `file_t` SET numoflinks = %d WHERE abspath = '%s'" % (numoflinks, oriFile)
+            print(update_filet_sql)
+            cursor.execute(insert_filet_sql)
+            cursor.execute(update_filet_sql)
+            #self.connection.commit()
+        return
 
 
     def extcluster(self, abspath):
@@ -356,6 +434,10 @@ class SQLUtil(object):
             sorted_ftype = {k: v for k, v in sorted(ftype_dict.items(), key=lambda item: -len(item[1]))}
             sorted_tab_list = [[k, len(v), str(round(sum(v) / len(v)))] for k, v in sorted_ftype.items()]
             print(tabulate(sorted_tab_list, headers=['Ext', 'Count', 'Avg Size']))
+
+    def quit(self):
+        self.connection.close()
+        return
 
 
 
