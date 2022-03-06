@@ -1,4 +1,4 @@
-## ECE356-Unix-Dumb-Project
+## Unix-Database-Project
 
 #### How to move UNIX box data into your local mysql?
 
